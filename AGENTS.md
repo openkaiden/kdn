@@ -73,10 +73,12 @@ make install
 ## Architecture
 
 ### Command Structure (Cobra-based)
-- Entry point: `cmd/kortex-cli/main.go` → calls `pkg/cmd.Execute()`
-- Root command: `pkg/cmd/root.go` defines the `kortex-cli` command
-- Subcommands: Each command is in `pkg/cmd/<command>.go` and registers itself via `init()`
-- Commands use Cobra's pattern: define a `cobra.Command`, register it with `rootCmd.AddCommand()` in `init()`
+- Entry point: `cmd/kortex-cli/main.go` → calls `cmd.NewRootCmd().Execute()` and handles errors with `os.Exit(1)`
+- Root command: `pkg/cmd/root.go` exports `NewRootCmd()` which creates and configures the root command
+- Subcommands: Each command is in `pkg/cmd/<command>.go` with a `New<Command>Cmd()` factory function
+- Commands use a factory pattern: each command exports a `New<Command>Cmd()` function that returns `*cobra.Command`
+- Command registration: `NewRootCmd()` calls `rootCmd.AddCommand(New<Command>Cmd())` for each subcommand
+- No global variables or `init()` functions - all configuration is explicit through factory functions
 
 ### Skills System
 Skills are reusable capabilities that can be discovered and executed by AI agents:
@@ -93,10 +95,31 @@ Skills are reusable capabilities that can be discovered and executed by AI agent
 3. Symlink in `.claude/skills/`: `ln -s ../../skills/<skill-name> .claude/skills/<skill-name>`
 
 ### Adding a New Command
-1. Create `pkg/cmd/<command>.go`
-2. Define a `cobra.Command` variable
-3. Register with `rootCmd.AddCommand()` in the `init()` function
+1. Create `pkg/cmd/<command>.go` with a `New<Command>Cmd()` function that returns `*cobra.Command`
+2. In the `New<Command>Cmd()` function:
+   - Create and configure the `cobra.Command`
+   - Set up any flags or subcommands
+   - Return the configured command
+3. Register the command in `pkg/cmd/root.go` by adding `rootCmd.AddCommand(New<Command>Cmd())` in the `NewRootCmd()` function
 4. Create corresponding test file `pkg/cmd/<command>_test.go`
+5. In tests, create command instances using `NewRootCmd()` or `New<Command>Cmd()` as needed
+
+Example:
+```go
+// pkg/cmd/example.go
+func NewExampleCmd() *cobra.Command {
+    return &cobra.Command{
+        Use:   "example",
+        Short: "An example command",
+        Run: func(cmd *cobra.Command, args []string) {
+            // Command logic here
+        },
+    }
+}
+
+// In pkg/cmd/root.go, add to NewRootCmd():
+rootCmd.AddCommand(NewExampleCmd())
+```
 
 ## Copyright Headers
 
