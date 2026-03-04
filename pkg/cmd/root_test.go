@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -61,5 +62,94 @@ func TestExecute_NoArgs(t *testing.T) {
 	// Call Execute() and verify it succeeds
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("Execute() failed: %v", err)
+	}
+}
+
+func TestRootCmd_StorageFlag(t *testing.T) {
+	rootCmd := NewRootCmd()
+
+	// Check that the flag exists
+	flag := rootCmd.PersistentFlags().Lookup("storage")
+	if flag == nil {
+		t.Fatal("Expected --storage flag to exist")
+	}
+
+	// Verify the flag has a default value
+	if flag.DefValue == "" {
+		t.Error("Expected --storage flag to have a default value")
+	}
+
+	// Verify the default value ends with .kortex-cli
+	if !strings.HasSuffix(flag.DefValue, ".kortex-cli") {
+		t.Errorf("Expected default value to end with '.kortex-cli', got '%s'", flag.DefValue)
+	}
+}
+
+func TestRootCmd_StorageFlagCustomValue(t *testing.T) {
+	t.Parallel()
+
+	rootCmd := NewRootCmd()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	customPath := "/custom/path/storage"
+	rootCmd.SetArgs([]string{"--storage", customPath, "version"})
+
+	// Execute the command
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Verify the flag value was set correctly
+	storagePath, err := rootCmd.PersistentFlags().GetString("storage")
+	if err != nil {
+		t.Fatalf("Failed to get storage flag: %v", err)
+	}
+
+	if storagePath != customPath {
+		t.Errorf("Expected storage to be '%s', got '%s'", customPath, storagePath)
+	}
+}
+
+func TestRootCmd_StorageFlagInSubcommand(t *testing.T) {
+	t.Parallel()
+
+	rootCmd := NewRootCmd()
+
+	// Find the version subcommand
+	versionCmd, _, err := rootCmd.Find([]string{"version"})
+	if err != nil {
+		t.Fatalf("Failed to find version command: %v", err)
+	}
+
+	// Verify the flag is inherited by subcommands
+	flag := versionCmd.InheritedFlags().Lookup("storage")
+	if flag == nil {
+		t.Error("Expected --storage flag to be inherited by subcommands")
+	}
+}
+
+func TestRootCmd_StorageFlagMissingValue(t *testing.T) {
+	t.Parallel()
+
+	rootCmd := NewRootCmd()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	// Provide the flag without a value
+	rootCmd.SetArgs([]string{"--storage"})
+
+	// Execute the command and expect an error
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("Expected Execute() to fail when --storage flag is provided without a value")
+	}
+
+	// Verify the error message indicates a flag parsing error
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "flag") && !strings.Contains(errMsg, "argument") {
+		t.Errorf("Expected error message to contain 'flag' or 'argument', got: %s", errMsg)
 	}
 }

@@ -80,6 +80,36 @@ make install
 - Command registration: `NewRootCmd()` calls `rootCmd.AddCommand(New<Command>Cmd())` for each subcommand
 - No global variables or `init()` functions - all configuration is explicit through factory functions
 
+### Global Flags
+Global flags are defined as persistent flags in `pkg/cmd/root.go` and are available to all commands.
+
+#### Accessing the --storage Flag
+The `--storage` flag specifies the directory where kortex-cli stores all its files. The default path is computed at runtime using `os.UserHomeDir()` and `filepath.Join()` to ensure cross-platform compatibility (Linux, macOS, Windows). The default is `$HOME/.kortex-cli` with a fallback to `.kortex-cli` in the current directory if the home directory cannot be determined.
+
+**Environment Variable**: The `KORTEX_CLI_STORAGE` environment variable can be used to set the storage directory path. The flag `--storage` will override the environment variable if both are specified.
+
+**Priority order** (highest to lowest):
+1. `--storage` flag (if specified)
+2. `KORTEX_CLI_STORAGE` environment variable (if set)
+3. Default: `$HOME/.kortex-cli`
+
+To access this value in any command:
+
+```go
+func NewExampleCmd() *cobra.Command {
+    return &cobra.Command{
+        Use:   "example",
+        Short: "An example command",
+        Run: func(cmd *cobra.Command, args []string) {
+            storagePath, _ := cmd.Flags().GetString("storage")
+            // Use storagePath...
+        },
+    }
+}
+```
+
+**Important**: Never hardcode paths with `~` as it's not cross-platform. Always use `os.UserHomeDir()` and `filepath.Join()` for path construction.
+
 ### Skills System
 Skills are reusable capabilities that can be discovered and executed by AI agents:
 - **Location**: `skills/<skill-name>/SKILL.md`

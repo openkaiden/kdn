@@ -19,10 +19,25 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 )
 
 func NewRootCmd() *cobra.Command {
+	// Compute default storage directory path cross-platform
+	homeDir, err := os.UserHomeDir()
+	defaultStoragePath := ".kortex-cli" // fallback to current directory
+	if err == nil {
+		defaultStoragePath = filepath.Join(homeDir, ".kortex-cli")
+	}
+
+	// Check for environment variable
+	if envStorage := os.Getenv("KORTEX_CLI_STORAGE"); envStorage != "" {
+		defaultStoragePath = envStorage
+	}
+
 	rootCmd := &cobra.Command{
 		Use:   "kortex-cli",
 		Short: "Launch and manage AI agent workspaces with custom configurations",
@@ -31,7 +46,8 @@ func NewRootCmd() *cobra.Command {
 	// Add subcommands
 	rootCmd.AddCommand(NewVersionCmd())
 
-	// Global flags can be added here
+	// Global flags
+	rootCmd.PersistentFlags().String("storage", defaultStoragePath, "Directory where kortex-cli will store all its files")
 
 	return rootCmd
 }
