@@ -21,7 +21,10 @@ on: [pull_request]
 jobs:
   ci-checks:
     name: CI Checks
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
 
     steps:
       - name: Checkout code
