@@ -36,39 +36,39 @@ func TestInitCmd_PreRun(t *testing.T) {
 
 		tempDir := t.TempDir()
 
-		initCmd := &InitCmd{}
+		c := &initCmd{}
 		cmd := &cobra.Command{}
 		cmd.Flags().String("workspace-configuration", "", "test flag")
 		cmd.Flags().String("storage", tempDir, "test storage flag")
 
 		args := []string{}
 
-		err := initCmd.preRun(cmd, args)
+		err := c.preRun(cmd, args)
 		if err != nil {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if initCmd.manager == nil {
+		if c.manager == nil {
 			t.Error("Expected manager to be created")
 		}
 
-		if initCmd.sourcesDir != "." {
-			t.Errorf("Expected sourcesDir to be '.', got %s", initCmd.sourcesDir)
+		if c.sourcesDir != "." {
+			t.Errorf("Expected sourcesDir to be '.', got %s", c.sourcesDir)
 		}
 
 		expectedAbsSourcesDir, _ := filepath.Abs(".")
-		if initCmd.absSourcesDir != expectedAbsSourcesDir {
-			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, initCmd.absSourcesDir)
+		if c.absSourcesDir != expectedAbsSourcesDir {
+			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, c.absSourcesDir)
 		}
 
 		expectedConfigDir := filepath.Join(".", ".kortex")
-		if initCmd.workspaceConfigDir != expectedConfigDir {
-			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, initCmd.workspaceConfigDir)
+		if c.workspaceConfigDir != expectedConfigDir {
+			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, c.workspaceConfigDir)
 		}
 
 		expectedAbsConfigDir, _ := filepath.Abs(expectedConfigDir)
-		if initCmd.absConfigDir != expectedAbsConfigDir {
-			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, initCmd.absConfigDir)
+		if c.absConfigDir != expectedAbsConfigDir {
+			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, c.absConfigDir)
 		}
 	})
 
@@ -78,39 +78,39 @@ func TestInitCmd_PreRun(t *testing.T) {
 		tempDir := t.TempDir()
 		sourcesDir := t.TempDir()
 
-		initCmd := &InitCmd{}
+		c := &initCmd{}
 		cmd := &cobra.Command{}
 		cmd.Flags().String("workspace-configuration", "", "test flag")
 		cmd.Flags().String("storage", tempDir, "test storage flag")
 
 		args := []string{sourcesDir}
 
-		err := initCmd.preRun(cmd, args)
+		err := c.preRun(cmd, args)
 		if err != nil {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if initCmd.manager == nil {
+		if c.manager == nil {
 			t.Error("Expected manager to be created")
 		}
 
-		if initCmd.sourcesDir != sourcesDir {
-			t.Errorf("Expected sourcesDir to be %s, got %s", sourcesDir, initCmd.sourcesDir)
+		if c.sourcesDir != sourcesDir {
+			t.Errorf("Expected sourcesDir to be %s, got %s", sourcesDir, c.sourcesDir)
 		}
 
 		expectedAbsSourcesDir, _ := filepath.Abs(sourcesDir)
-		if initCmd.absSourcesDir != expectedAbsSourcesDir {
-			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, initCmd.absSourcesDir)
+		if c.absSourcesDir != expectedAbsSourcesDir {
+			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, c.absSourcesDir)
 		}
 
 		expectedConfigDir := filepath.Join(sourcesDir, ".kortex")
-		if initCmd.workspaceConfigDir != expectedConfigDir {
-			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, initCmd.workspaceConfigDir)
+		if c.workspaceConfigDir != expectedConfigDir {
+			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, c.workspaceConfigDir)
 		}
 
 		expectedAbsConfigDir, _ := filepath.Abs(expectedConfigDir)
-		if initCmd.absConfigDir != expectedAbsConfigDir {
-			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, initCmd.absConfigDir)
+		if c.absConfigDir != expectedAbsConfigDir {
+			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, c.absConfigDir)
 		}
 	})
 
@@ -120,7 +120,7 @@ func TestInitCmd_PreRun(t *testing.T) {
 		tempDir := t.TempDir()
 		configDir := t.TempDir()
 
-		initCmd := &InitCmd{
+		c := &initCmd{
 			workspaceConfigDir: configDir,
 		}
 		cmd := &cobra.Command{}
@@ -130,26 +130,26 @@ func TestInitCmd_PreRun(t *testing.T) {
 
 		args := []string{}
 
-		err := initCmd.preRun(cmd, args)
+		err := c.preRun(cmd, args)
 		if err != nil {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if initCmd.manager == nil {
+		if c.manager == nil {
 			t.Error("Expected manager to be created")
 		}
 
-		if initCmd.sourcesDir != "." {
-			t.Errorf("Expected sourcesDir to be '.', got %s", initCmd.sourcesDir)
+		if c.sourcesDir != "." {
+			t.Errorf("Expected sourcesDir to be '.', got %s", c.sourcesDir)
 		}
 
-		if initCmd.workspaceConfigDir != configDir {
-			t.Errorf("Expected workspaceConfigDir to be %s, got %s", configDir, initCmd.workspaceConfigDir)
+		if c.workspaceConfigDir != configDir {
+			t.Errorf("Expected workspaceConfigDir to be %s, got %s", configDir, c.workspaceConfigDir)
 		}
 
 		expectedAbsConfigDir, _ := filepath.Abs(configDir)
-		if initCmd.absConfigDir != expectedAbsConfigDir {
-			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, initCmd.absConfigDir)
+		if c.absConfigDir != expectedAbsConfigDir {
+			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, c.absConfigDir)
 		}
 	})
 
@@ -160,7 +160,7 @@ func TestInitCmd_PreRun(t *testing.T) {
 		sourcesDir := t.TempDir()
 		configDir := t.TempDir()
 
-		initCmd := &InitCmd{
+		c := &initCmd{
 			workspaceConfigDir: configDir,
 		}
 		cmd := &cobra.Command{}
@@ -170,31 +170,31 @@ func TestInitCmd_PreRun(t *testing.T) {
 
 		args := []string{sourcesDir}
 
-		err := initCmd.preRun(cmd, args)
+		err := c.preRun(cmd, args)
 		if err != nil {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if initCmd.manager == nil {
+		if c.manager == nil {
 			t.Error("Expected manager to be created")
 		}
 
-		if initCmd.sourcesDir != sourcesDir {
-			t.Errorf("Expected sourcesDir to be %s, got %s", sourcesDir, initCmd.sourcesDir)
+		if c.sourcesDir != sourcesDir {
+			t.Errorf("Expected sourcesDir to be %s, got %s", sourcesDir, c.sourcesDir)
 		}
 
 		expectedAbsSourcesDir, _ := filepath.Abs(sourcesDir)
-		if initCmd.absSourcesDir != expectedAbsSourcesDir {
-			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, initCmd.absSourcesDir)
+		if c.absSourcesDir != expectedAbsSourcesDir {
+			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, c.absSourcesDir)
 		}
 
-		if initCmd.workspaceConfigDir != configDir {
-			t.Errorf("Expected workspaceConfigDir to be %s, got %s", configDir, initCmd.workspaceConfigDir)
+		if c.workspaceConfigDir != configDir {
+			t.Errorf("Expected workspaceConfigDir to be %s, got %s", configDir, c.workspaceConfigDir)
 		}
 
 		expectedAbsConfigDir, _ := filepath.Abs(configDir)
-		if initCmd.absConfigDir != expectedAbsConfigDir {
-			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, initCmd.absConfigDir)
+		if c.absConfigDir != expectedAbsConfigDir {
+			t.Errorf("Expected absConfigDir to be %s, got %s", expectedAbsConfigDir, c.absConfigDir)
 		}
 	})
 
@@ -204,34 +204,34 @@ func TestInitCmd_PreRun(t *testing.T) {
 		tempDir := t.TempDir()
 		relativePath := filepath.Join(".", "relative", "path")
 
-		initCmd := &InitCmd{}
+		c := &initCmd{}
 		cmd := &cobra.Command{}
 		cmd.Flags().String("workspace-configuration", "", "test flag")
 		cmd.Flags().String("storage", tempDir, "test storage flag")
 
 		args := []string{relativePath}
 
-		err := initCmd.preRun(cmd, args)
+		err := c.preRun(cmd, args)
 		if err != nil {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if initCmd.manager == nil {
+		if c.manager == nil {
 			t.Error("Expected manager to be created")
 		}
 
-		if initCmd.sourcesDir != relativePath {
-			t.Errorf("Expected sourcesDir to be %s, got %s", relativePath, initCmd.sourcesDir)
+		if c.sourcesDir != relativePath {
+			t.Errorf("Expected sourcesDir to be %s, got %s", relativePath, c.sourcesDir)
 		}
 
 		expectedAbsSourcesDir, _ := filepath.Abs(relativePath)
-		if initCmd.absSourcesDir != expectedAbsSourcesDir {
-			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, initCmd.absSourcesDir)
+		if c.absSourcesDir != expectedAbsSourcesDir {
+			t.Errorf("Expected absSourcesDir to be %s, got %s", expectedAbsSourcesDir, c.absSourcesDir)
 		}
 
 		expectedConfigDir := filepath.Join(relativePath, ".kortex")
-		if initCmd.workspaceConfigDir != expectedConfigDir {
-			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, initCmd.workspaceConfigDir)
+		if c.workspaceConfigDir != expectedConfigDir {
+			t.Errorf("Expected workspaceConfigDir to be %s, got %s", expectedConfigDir, c.workspaceConfigDir)
 		}
 	})
 }
@@ -274,7 +274,7 @@ func TestInitCmd_E2E(t *testing.T) {
 		}
 
 		if len(instancesList) != 1 {
-			t.Errorf("Expected 1 instance, got %d", len(instancesList))
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
 		}
 
 		inst := instancesList[0]
@@ -552,7 +552,7 @@ func TestInitCmd_E2E(t *testing.T) {
 		}
 
 		if len(instancesList) != 2 {
-			t.Errorf("Expected 2 instances, got %d", len(instancesList))
+			t.Fatalf("Expected 2 instances, got %d", len(instancesList))
 		}
 
 		// Verify both instances have unique IDs

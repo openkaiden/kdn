@@ -26,8 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// InitCmd contains the configuration for the init command
-type InitCmd struct {
+// initCmd contains the configuration for the init command
+type initCmd struct {
 	sourcesDir         string
 	workspaceConfigDir string
 	absSourcesDir      string
@@ -36,7 +36,7 @@ type InitCmd struct {
 }
 
 // preRun validates the parameters and flags
-func (i *InitCmd) preRun(cmd *cobra.Command, args []string) error {
+func (i *initCmd) preRun(cmd *cobra.Command, args []string) error {
 	// Get storage directory from global flag
 	storageDir, err := cmd.Flags().GetString("storage")
 	if err != nil {
@@ -79,7 +79,7 @@ func (i *InitCmd) preRun(cmd *cobra.Command, args []string) error {
 }
 
 // run executes the init command logic
-func (i *InitCmd) run(cmd *cobra.Command, args []string) error {
+func (i *initCmd) run(cmd *cobra.Command, args []string) error {
 	// Create a new instance
 	instance, err := instances.NewInstance(i.absSourcesDir, i.absConfigDir)
 	if err != nil {
@@ -101,7 +101,7 @@ func (i *InitCmd) run(cmd *cobra.Command, args []string) error {
 }
 
 func NewInitCmd() *cobra.Command {
-	initCmd := &InitCmd{}
+	c := &initCmd{}
 
 	cmd := &cobra.Command{
 		Use:   "init [sources-directory]",
@@ -111,12 +111,12 @@ func NewInitCmd() *cobra.Command {
 The sources directory defaults to the current directory (.) if not specified.
 The workspace configuration directory defaults to .kortex/ inside the sources directory if not specified.`,
 		Args:    cobra.MaximumNArgs(1),
-		PreRunE: initCmd.preRun,
-		RunE:    initCmd.run,
+		PreRunE: c.preRun,
+		RunE:    c.run,
 	}
 
 	// Add workspace-configuration flag
-	cmd.Flags().StringVar(&initCmd.workspaceConfigDir, "workspace-configuration", "", "Directory for workspace configuration (default: <sources-directory>/.kortex)")
+	cmd.Flags().StringVar(&c.workspaceConfigDir, "workspace-configuration", "", "Directory for workspace configuration (default: <sources-directory>/.kortex)")
 
 	return cmd
 }
