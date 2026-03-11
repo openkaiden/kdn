@@ -37,6 +37,18 @@ type InstancePaths struct {
 	Configuration string `json:"configuration"`
 }
 
+// RuntimeData represents runtime-specific information for an instance
+type RuntimeData struct {
+	// Type is the runtime type (e.g., "fake", "podman", "docker")
+	Type string `json:"type"`
+	// InstanceID is the runtime-assigned instance identifier
+	InstanceID string `json:"instance_id"`
+	// State is the current runtime state (e.g., "created", "running", "stopped")
+	State string `json:"state"`
+	// Info contains runtime-specific metadata
+	Info map[string]string `json:"info"`
+}
+
 // InstanceData represents the serializable data of an instance
 type InstanceData struct {
 	// ID is the unique identifier for the instance
@@ -45,6 +57,8 @@ type InstanceData struct {
 	Name string `json:"name"`
 	// Paths contains the source and configuration directories
 	Paths InstancePaths `json:"paths"`
+	// Runtime contains runtime-specific information
+	Runtime RuntimeData `json:"runtime"`
 }
 
 // Instance represents a workspace instance with source and configuration directories.
@@ -63,6 +77,10 @@ type Instance interface {
 	GetConfigDir() string
 	// IsAccessible checks if both source and config directories are accessible
 	IsAccessible() bool
+	// GetRuntimeType returns the runtime type for this instance
+	GetRuntimeType() string
+	// GetRuntimeData returns the complete runtime data for this instance
+	GetRuntimeData() RuntimeData
 	// Dump returns the serializable data of the instance
 	Dump() InstanceData
 }
@@ -79,6 +97,8 @@ type instance struct {
 	// ConfigDir is the directory containing workspace configuration.
 	// This is always stored as an absolute path.
 	ConfigDir string
+	// Runtime contains runtime-specific information
+	Runtime RuntimeData
 }
 
 // Compile-time check to ensure instance implements Instance interface
@@ -115,6 +135,16 @@ func (i *instance) IsAccessible() bool {
 	return true
 }
 
+// GetRuntimeType returns the runtime type for this instance
+func (i *instance) GetRuntimeType() string {
+	return i.Runtime.Type
+}
+
+// GetRuntimeData returns the complete runtime data for this instance
+func (i *instance) GetRuntimeData() RuntimeData {
+	return i.Runtime
+}
+
 // Dump returns the serializable data of the instance
 func (i *instance) Dump() InstanceData {
 	return InstanceData{
@@ -124,6 +154,7 @@ func (i *instance) Dump() InstanceData {
 			Source:        i.SourceDir,
 			Configuration: i.ConfigDir,
 		},
+		Runtime: i.Runtime,
 	}
 }
 
@@ -188,6 +219,7 @@ func NewInstanceFromData(data InstanceData) (Instance, error) {
 		Name:      data.Name,
 		SourceDir: data.Paths.Source,
 		ConfigDir: data.Paths.Configuration,
+		Runtime:   data.Runtime,
 	}, nil
 }
 

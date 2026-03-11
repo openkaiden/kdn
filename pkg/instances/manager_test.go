@@ -22,6 +22,9 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/kortex-hub/kortex-cli/pkg/runtime"
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/fake"
 )
 
 // fakeInstance is a test double for the Instance interface
@@ -31,6 +34,7 @@ type fakeInstance struct {
 	sourceDir  string
 	configDir  string
 	accessible bool
+	runtime    RuntimeData
 }
 
 // Compile-time check to ensure fakeInstance implements Instance interface
@@ -56,6 +60,14 @@ func (f *fakeInstance) IsAccessible() bool {
 	return f.accessible
 }
 
+func (f *fakeInstance) GetRuntimeType() string {
+	return f.runtime.Type
+}
+
+func (f *fakeInstance) GetRuntimeData() RuntimeData {
+	return f.runtime
+}
+
 func (f *fakeInstance) Dump() InstanceData {
 	return InstanceData{
 		ID:   f.id,
@@ -64,6 +76,7 @@ func (f *fakeInstance) Dump() InstanceData {
 			Source:        f.sourceDir,
 			Configuration: f.configDir,
 		},
+		Runtime: f.runtime,
 	}
 }
 
@@ -74,6 +87,7 @@ type newFakeInstanceParams struct {
 	SourceDir  string
 	ConfigDir  string
 	Accessible bool
+	Runtime    RuntimeData
 }
 
 // newFakeInstance creates a new fake instance for testing
@@ -84,6 +98,7 @@ func newFakeInstance(params newFakeInstanceParams) Instance {
 		sourceDir:  params.SourceDir,
 		configDir:  params.ConfigDir,
 		accessible: params.Accessible,
+		runtime:    params.Runtime,
 	}
 }
 
@@ -109,6 +124,7 @@ func fakeInstanceFactory(data InstanceData) (Instance, error) {
 		sourceDir:  data.Paths.Source,
 		configDir:  data.Paths.Configuration,
 		accessible: true,
+		runtime:    data.Runtime,
 	}, nil
 }
 
@@ -151,6 +167,13 @@ func (g *fakeSequentialGenerator) Generate() string {
 	id := g.ids[g.callCount]
 	g.callCount++
 	return id
+}
+
+// newTestRegistry creates a runtime registry with a fake runtime for testing
+func newTestRegistry() runtime.Registry {
+	reg := runtime.NewRegistry()
+	_ = reg.Register(fake.New())
+	return reg
 }
 
 func TestNewManager(t *testing.T) {
@@ -211,9 +234,9 @@ func TestNewManager(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, err := NewManager(tmpDir)
+		manager, err := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 		if err != nil {
-			t.Fatalf("NewManager() unexpected error = %v", err)
+			t.Fatalf("newManagerWithFactory() unexpected error = %v", err)
 		}
 
 		// We can't directly access storageFile since it's on the unexported struct,
@@ -224,7 +247,10 @@ func TestNewManager(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, _ = manager.Add(inst)
+		_, addErr := manager.Add(inst, "fake")
+		if addErr != nil {
+			t.Fatalf("Failed to add instance: %v", addErr)
+		}
 
 		expectedFile := filepath.Join(tmpDir, DefaultStorageFileName)
 		if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
@@ -240,7 +266,7 @@ func TestManager_Add(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -248,7 +274,7 @@ func TestManager_Add(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		added, err := manager.Add(inst)
+		added, err := manager.Add(inst, "fake")
 		if err != nil {
 			t.Fatalf("Add() unexpected error = %v", err)
 		}
@@ -270,9 +296,9 @@ func TestManager_Add(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
-		_, err := manager.Add(nil)
+		_, err := manager.Add(nil, "fake")
 		if err == nil {
 			t.Error("Add() expected error for nil instance, got nil")
 		}
@@ -291,7 +317,7 @@ func TestManager_Add(t *testing.T) {
 			"duplicate-id-0000000000000000000000000000000000000000000000000000000a",
 			"unique-id-1-0000000000000000000000000000000000000000000000000000000b",
 		})
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, gen)
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, gen, newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		// Create instances without IDs (empty ID)
@@ -306,8 +332,8 @@ func TestManager_Add(t *testing.T) {
 			Accessible: true,
 		})
 
-		added1, _ := manager.Add(inst1)
-		added2, _ := manager.Add(inst2)
+		added1, _ := manager.Add(inst1, "fake")
+		added2, _ := manager.Add(inst2, "fake")
 
 		id1 := added1.GetID()
 		id2 := added2.GetID()
@@ -342,7 +368,7 @@ func TestManager_Add(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -350,7 +376,7 @@ func TestManager_Add(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, _ = manager.Add(inst)
+		_, _ = manager.Add(inst, "fake")
 
 		// Check that JSON file exists and is readable
 		storageFile := filepath.Join(tmpDir, DefaultStorageFileName)
@@ -367,7 +393,7 @@ func TestManager_Add(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inst1 := newFakeInstance(newFakeInstanceParams{
@@ -386,9 +412,9 @@ func TestManager_Add(t *testing.T) {
 			Accessible: true,
 		})
 
-		_, _ = manager.Add(inst1)
-		_, _ = manager.Add(inst2)
-		_, _ = manager.Add(inst3)
+		_, _ = manager.Add(inst1, "fake")
+		_, _ = manager.Add(inst2, "fake")
+		_, _ = manager.Add(inst3, "fake")
 
 		instances, _ := manager.List()
 		if len(instances) != 3 {
@@ -404,7 +430,7 @@ func TestManager_List(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instances, err := manager.List()
 		if err != nil {
@@ -419,7 +445,7 @@ func TestManager_List(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inst1 := newFakeInstance(newFakeInstanceParams{
@@ -433,8 +459,8 @@ func TestManager_List(t *testing.T) {
 			Accessible: true,
 		})
 
-		_, _ = manager.Add(inst1)
-		_, _ = manager.Add(inst2)
+		_, _ = manager.Add(inst1, "fake")
+		_, _ = manager.Add(inst2, "fake")
 
 		instances, err := manager.List()
 		if err != nil {
@@ -449,7 +475,7 @@ func TestManager_List(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		// Create empty storage file
 		storageFile := filepath.Join(tmpDir, DefaultStorageFileName)
@@ -472,7 +498,7 @@ func TestManager_Get(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		expectedSource := filepath.Join(instanceTmpDir, "source")
@@ -482,7 +508,7 @@ func TestManager_Get(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager.Add(inst)
+		added, _ := manager.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
@@ -505,7 +531,7 @@ func TestManager_Get(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		_, err := manager.Get("nonexistent-id")
 		if err != ErrInstanceNotFound {
@@ -521,7 +547,7 @@ func TestManager_Delete(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		sourceDir := filepath.Join(instanceTmpDir, "source")
@@ -531,7 +557,7 @@ func TestManager_Delete(t *testing.T) {
 			ConfigDir:  configDir,
 			Accessible: true,
 		})
-		added, _ := manager.Add(inst)
+		added, _ := manager.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
@@ -551,7 +577,7 @@ func TestManager_Delete(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		err := manager.Delete("nonexistent-id")
 		if err != ErrInstanceNotFound {
@@ -563,7 +589,7 @@ func TestManager_Delete(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		source1 := filepath.Join(instanceTmpDir, "source1")
@@ -580,8 +606,8 @@ func TestManager_Delete(t *testing.T) {
 			ConfigDir:  config2,
 			Accessible: true,
 		})
-		added1, _ := manager.Add(inst1)
-		added2, _ := manager.Add(inst2)
+		added1, _ := manager.Add(inst1, "fake")
+		added2, _ := manager.Add(inst2, "fake")
 
 		id1 := added1.GetID()
 		id2 := added2.GetID()
@@ -605,24 +631,285 @@ func TestManager_Delete(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		inst := newFakeInstance(newFakeInstanceParams{
 			SourceDir:  filepath.Join(string(filepath.Separator), "tmp", "source"),
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager1.Add(inst)
+		added, _ := manager1.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
 		manager1.Delete(generatedID)
 
 		// Create new manager with same storage
-		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 		_, err := manager2.Get(generatedID)
 		if err != ErrInstanceNotFound {
 			t.Errorf("Get() from new manager error = %v, want %v", err, ErrInstanceNotFound)
+		}
+	})
+}
+
+func TestManager_Start(t *testing.T) {
+	t.Parallel()
+
+	t.Run("starts instance successfully", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		instanceTmpDir := t.TempDir()
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(instanceTmpDir, "source"),
+			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
+			Accessible: true,
+		})
+		added, _ := manager.Add(inst, "fake")
+
+		// After Add, state should be "created"
+		if added.GetRuntimeData().State != "created" {
+			t.Errorf("After Add, state = %v, want 'created'", added.GetRuntimeData().State)
+		}
+
+		// Start the instance
+		err := manager.Start(added.GetID())
+		if err != nil {
+			t.Fatalf("Start() unexpected error = %v", err)
+		}
+
+		// Verify state is now "running"
+		updated, _ := manager.Get(added.GetID())
+		if updated.GetRuntimeData().State != "running" {
+			t.Errorf("After Start, state = %v, want 'running'", updated.GetRuntimeData().State)
+		}
+	})
+
+	t.Run("returns error for nonexistent instance", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		err := manager.Start("nonexistent-id")
+		if err != ErrInstanceNotFound {
+			t.Errorf("Start() error = %v, want %v", err, ErrInstanceNotFound)
+		}
+	})
+
+	t.Run("returns error for instance without runtime", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		// Custom factory that creates instances without runtime
+		noRuntimeFactory := func(data InstanceData) (Instance, error) {
+			if data.ID == "" {
+				return nil, errors.New("instance ID cannot be empty")
+			}
+			if data.Name == "" {
+				return nil, errors.New("instance name cannot be empty")
+			}
+			return &fakeInstance{
+				id:         data.ID,
+				name:       data.Name,
+				sourceDir:  data.Paths.Source,
+				configDir:  data.Paths.Configuration,
+				accessible: true,
+				runtime:    RuntimeData{}, // Empty runtime
+			}, nil
+		}
+		manager, _ := newManagerWithFactory(tmpDir, noRuntimeFactory, newFakeGenerator(), newTestRegistry())
+
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(string(filepath.Separator), "tmp", "source"),
+			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
+			Accessible: true,
+		})
+		added, _ := manager.Add(inst, "fake")
+
+		// Manually save instance without runtime to simulate old data
+		instances := []Instance{&fakeInstance{
+			id:         added.GetID(),
+			name:       added.GetName(),
+			sourceDir:  added.GetSourceDir(),
+			configDir:  added.GetConfigDir(),
+			accessible: true,
+			runtime:    RuntimeData{}, // No runtime
+		}}
+		data := make([]InstanceData, len(instances))
+		for i, instance := range instances {
+			data[i] = instance.Dump()
+		}
+		jsonData, _ := json.Marshal(data)
+		storageFile := filepath.Join(tmpDir, DefaultStorageFileName)
+		os.WriteFile(storageFile, jsonData, 0644)
+
+		err := manager.Start(added.GetID())
+		if err == nil {
+			t.Error("Start() expected error for instance without runtime, got nil")
+		}
+		if !errors.Is(err, errors.New("instance has no runtime configured")) && err.Error() != "instance has no runtime configured" {
+			t.Errorf("Start() error = %v, want 'instance has no runtime configured'", err)
+		}
+	})
+
+	t.Run("persists state change to storage", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(string(filepath.Separator), "tmp", "source"),
+			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
+			Accessible: true,
+		})
+		added, _ := manager1.Add(inst, "fake")
+		manager1.Start(added.GetID())
+
+		// Create new manager with same storage
+		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+		retrieved, _ := manager2.Get(added.GetID())
+
+		if retrieved.GetRuntimeData().State != "running" {
+			t.Errorf("State from new manager = %v, want 'running'", retrieved.GetRuntimeData().State)
+		}
+	})
+}
+
+func TestManager_Stop(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stops instance successfully", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		instanceTmpDir := t.TempDir()
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(instanceTmpDir, "source"),
+			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
+			Accessible: true,
+		})
+		added, _ := manager.Add(inst, "fake")
+		manager.Start(added.GetID())
+
+		// Verify state is "running"
+		running, _ := manager.Get(added.GetID())
+		if running.GetRuntimeData().State != "running" {
+			t.Errorf("Before Stop, state = %v, want 'running'", running.GetRuntimeData().State)
+		}
+
+		// Stop the instance
+		err := manager.Stop(added.GetID())
+		if err != nil {
+			t.Fatalf("Stop() unexpected error = %v", err)
+		}
+
+		// Verify state is now "stopped"
+		updated, _ := manager.Get(added.GetID())
+		if updated.GetRuntimeData().State != "stopped" {
+			t.Errorf("After Stop, state = %v, want 'stopped'", updated.GetRuntimeData().State)
+		}
+	})
+
+	t.Run("returns error for nonexistent instance", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		err := manager.Stop("nonexistent-id")
+		if err != ErrInstanceNotFound {
+			t.Errorf("Stop() error = %v, want %v", err, ErrInstanceNotFound)
+		}
+	})
+
+	t.Run("returns error for instance without runtime", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(string(filepath.Separator), "tmp", "source"),
+			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
+			Accessible: true,
+		})
+		added, _ := manager.Add(inst, "fake")
+
+		// Manually save instance without runtime to simulate old data
+		instances := []Instance{&fakeInstance{
+			id:         added.GetID(),
+			name:       added.GetName(),
+			sourceDir:  added.GetSourceDir(),
+			configDir:  added.GetConfigDir(),
+			accessible: true,
+			runtime:    RuntimeData{}, // No runtime
+		}}
+		data := make([]InstanceData, len(instances))
+		for i, instance := range instances {
+			data[i] = instance.Dump()
+		}
+		jsonData, _ := json.Marshal(data)
+		storageFile := filepath.Join(tmpDir, DefaultStorageFileName)
+		os.WriteFile(storageFile, jsonData, 0644)
+
+		err := manager.Stop(added.GetID())
+		if err == nil {
+			t.Error("Stop() expected error for instance without runtime, got nil")
+		}
+		if !errors.Is(err, errors.New("instance has no runtime configured")) && err.Error() != "instance has no runtime configured" {
+			t.Errorf("Stop() error = %v, want 'instance has no runtime configured'", err)
+		}
+	})
+
+	t.Run("persists state change to storage", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(string(filepath.Separator), "tmp", "source"),
+			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
+			Accessible: true,
+		})
+		added, _ := manager1.Add(inst, "fake")
+		manager1.Start(added.GetID())
+		manager1.Stop(added.GetID())
+
+		// Create new manager with same storage
+		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+		retrieved, _ := manager2.Get(added.GetID())
+
+		if retrieved.GetRuntimeData().State != "stopped" {
+			t.Errorf("State from new manager = %v, want 'stopped'", retrieved.GetRuntimeData().State)
+		}
+	})
+
+	t.Run("can stop created instance that was never started", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
+
+		instanceTmpDir := t.TempDir()
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  filepath.Join(instanceTmpDir, "source"),
+			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
+			Accessible: true,
+		})
+		added, _ := manager.Add(inst, "fake")
+
+		// State is "created", try to stop
+		err := manager.Stop(added.GetID())
+		if err == nil {
+			t.Error("Stop() expected error for instance in 'created' state, got nil")
 		}
 	})
 }
@@ -653,7 +940,7 @@ func TestManager_Reconcile(t *testing.T) {
 				accessible: false, // Always inaccessible for this test
 			}, nil
 		}
-		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator(), newTestRegistry())
 
 		// Add instance that is inaccessible
 		instanceTmpDir := t.TempDir()
@@ -662,7 +949,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(inst)
+		_, _ = manager.Add(inst, "fake")
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -697,7 +984,7 @@ func TestManager_Reconcile(t *testing.T) {
 				accessible: false, // Always inaccessible for this test
 			}, nil
 		}
-		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator(), newTestRegistry())
 
 		// Add instance that is inaccessible
 		instanceTmpDir := t.TempDir()
@@ -706,7 +993,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "nonexistent-config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(inst)
+		_, _ = manager.Add(inst, "fake")
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -741,7 +1028,7 @@ func TestManager_Reconcile(t *testing.T) {
 				accessible: false, // Always inaccessible for this test
 			}, nil
 		}
-		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, inaccessibleFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inaccessibleSource := filepath.Join(instanceTmpDir, "nonexistent-source")
@@ -750,7 +1037,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: false,
 		})
-		added, _ := manager.Add(inst)
+		added, _ := manager.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
@@ -789,7 +1076,7 @@ func TestManager_Reconcile(t *testing.T) {
 				accessible: accessible,
 			}, nil
 		}
-		manager, _ := newManagerWithFactory(tmpDir, mixedFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, mixedFactory, newFakeGenerator(), newTestRegistry())
 
 		accessibleConfig := filepath.Join(instanceTmpDir, "accessible-config")
 
@@ -799,7 +1086,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  accessibleConfig,
 			Accessible: true,
 		})
-		_, _ = manager.Add(accessible)
+		_, _ = manager.Add(accessible, "fake")
 
 		// Add inaccessible instance
 		inaccessible := newFakeInstance(newFakeInstanceParams{
@@ -807,7 +1094,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "nonexistent-config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(inaccessible)
+		_, _ = manager.Add(inaccessible, "fake")
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -832,7 +1119,7 @@ func TestManager_Reconcile(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -840,7 +1127,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, _ = manager.Add(inst)
+		_, _ = manager.Add(inst, "fake")
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -856,7 +1143,7 @@ func TestManager_Reconcile(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -879,7 +1166,7 @@ func TestManager_Persistence(t *testing.T) {
 		instanceTmpDir := t.TempDir()
 
 		// Create first manager and add instance
-		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager1, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 		expectedSource := filepath.Join(instanceTmpDir, "source")
 		expectedConfig := filepath.Join(instanceTmpDir, "config")
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -887,12 +1174,12 @@ func TestManager_Persistence(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager1.Add(inst)
+		added, _ := manager1.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
 		// Create second manager with same storage
-		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager2, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 		instances, err := manager2.List()
 		if err != nil {
 			t.Fatalf("List() from second manager unexpected error = %v", err)
@@ -913,7 +1200,7 @@ func TestManager_Persistence(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		expectedSource := filepath.Join(instanceTmpDir, "source")
@@ -923,7 +1210,7 @@ func TestManager_Persistence(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager.Add(inst)
+		added, _ := manager.Add(inst, "fake")
 
 		generatedID := added.GetID()
 
@@ -965,7 +1252,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		var wg sync.WaitGroup
@@ -982,7 +1269,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 					ConfigDir:  configDir,
 					Accessible: true,
 				})
-				_, _ = manager.Add(inst)
+				_, _ = manager.Add(inst, "fake")
 			}(i)
 		}
 
@@ -998,7 +1285,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		instanceTmpDir := t.TempDir()
 		// Add some instances first
@@ -1010,7 +1297,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 				ConfigDir:  configDir,
 				Accessible: true,
 			})
-			_, _ = manager.Add(inst)
+			_, _ = manager.Add(inst, "fake")
 		}
 
 		var wg sync.WaitGroup
@@ -1042,7 +1329,7 @@ func TestManager_ensureUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		// Cast to concrete type to access unexported methods
 		mgr := m.(*manager)
@@ -1075,7 +1362,7 @@ func TestManager_ensureUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1100,7 +1387,7 @@ func TestManager_ensureUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1139,7 +1426,7 @@ func TestManager_ensureUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1175,7 +1462,7 @@ func TestManager_ensureUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1196,7 +1483,7 @@ func TestManager_generateUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1213,7 +1500,7 @@ func TestManager_generateUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1238,7 +1525,7 @@ func TestManager_generateUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
@@ -1256,7 +1543,7 @@ func TestManager_generateUniqueName(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator())
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry())
 
 		mgr := m.(*manager)
 
