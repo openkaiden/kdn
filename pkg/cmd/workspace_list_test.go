@@ -27,6 +27,7 @@ import (
 
 	api "github.com/kortex-hub/kortex-cli-api/cli/go"
 	"github.com/kortex-hub/kortex-cli/pkg/instances"
+	"github.com/spf13/cobra"
 )
 
 func TestWorkspaceListCmd(t *testing.T) {
@@ -49,13 +50,21 @@ func TestWorkspaceListCmd_PreRun(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir})
 
-		// Execute to trigger preRun
-		err := rootCmd.Execute()
+		c := &workspaceListCmd{}
+		cmd := &cobra.Command{}
+		cmd.Flags().String("storage", storageDir, "test storage flag")
+		cmd.Flags().String("output", "", "test output flag")
+
+		args := []string{}
+
+		err := c.preRun(cmd, args)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("preRun() failed: %v", err)
+		}
+
+		if c.manager == nil {
+			t.Error("Expected manager to be created")
 		}
 	})
 
@@ -63,12 +72,21 @@ func TestWorkspaceListCmd_PreRun(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir})
 
-		err := rootCmd.Execute()
+		c := &workspaceListCmd{}
+		cmd := &cobra.Command{}
+		cmd.Flags().String("storage", storageDir, "test storage flag")
+		cmd.Flags().String("output", "", "test output flag")
+
+		args := []string{}
+
+		err := c.preRun(cmd, args)
 		if err != nil {
-			t.Fatalf("Expected no error with no output flag, got %v", err)
+			t.Fatalf("preRun() failed: %v", err)
+		}
+
+		if c.output != "" {
+			t.Errorf("Expected output to be empty, got %s", c.output)
 		}
 	})
 
@@ -76,25 +94,22 @@ func TestWorkspaceListCmd_PreRun(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir, "--output", "json"})
 
-		err := rootCmd.Execute()
+		c := &workspaceListCmd{}
+		cmd := &cobra.Command{}
+		cmd.Flags().String("storage", storageDir, "test storage flag")
+		cmd.Flags().String("output", "", "test output flag")
+		cmd.Flags().Set("output", "json")
+
+		args := []string{}
+
+		err := c.preRun(cmd, args)
 		if err != nil {
-			t.Fatalf("Expected no error with --output json, got %v", err)
+			t.Fatalf("preRun() failed: %v", err)
 		}
-	})
 
-	t.Run("accepts valid output flag with -o json", func(t *testing.T) {
-		t.Parallel()
-
-		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir, "-o", "json"})
-
-		err := rootCmd.Execute()
-		if err != nil {
-			t.Fatalf("Expected no error with -o json, got %v", err)
+		if c.output != "json" {
+			t.Errorf("Expected output to be 'json', got %s", c.output)
 		}
 	})
 
@@ -102,12 +117,18 @@ func TestWorkspaceListCmd_PreRun(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir, "--output", "xml"})
 
-		err := rootCmd.Execute()
+		c := &workspaceListCmd{}
+		cmd := &cobra.Command{}
+		cmd.Flags().String("storage", storageDir, "test storage flag")
+		cmd.Flags().String("output", "", "test output flag")
+		cmd.Flags().Set("output", "xml")
+
+		args := []string{}
+
+		err := c.preRun(cmd, args)
 		if err == nil {
-			t.Fatal("Expected error with invalid output format, got nil")
+			t.Fatal("Expected preRun() to fail with invalid output format")
 		}
 
 		if !strings.Contains(err.Error(), "unsupported output format") {
@@ -115,16 +136,22 @@ func TestWorkspaceListCmd_PreRun(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects invalid output format with short flag", func(t *testing.T) {
+	t.Run("rejects invalid output format yaml", func(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
-		rootCmd := NewRootCmd()
-		rootCmd.SetArgs([]string{"workspace", "list", "--storage", storageDir, "-o", "yaml"})
 
-		err := rootCmd.Execute()
+		c := &workspaceListCmd{}
+		cmd := &cobra.Command{}
+		cmd.Flags().String("storage", storageDir, "test storage flag")
+		cmd.Flags().String("output", "", "test output flag")
+		cmd.Flags().Set("output", "yaml")
+
+		args := []string{}
+
+		err := c.preRun(cmd, args)
 		if err == nil {
-			t.Fatal("Expected error with invalid output format, got nil")
+			t.Fatal("Expected preRun() to fail with invalid output format")
 		}
 
 		if !strings.Contains(err.Error(), "unsupported output format") {

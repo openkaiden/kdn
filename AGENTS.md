@@ -265,21 +265,76 @@ Commands should follow a consistent structure for maintainability and testabilit
 
 Commands should have two types of tests following the pattern in `pkg/cmd/init_test.go`:
 
-1. **Unit Tests** - Test the `preRun` method directly:
+1. **Unit Tests** - Test the `preRun` method directly by calling it on the command struct:
+   - **IMPORTANT**: Create an instance of the command struct (e.g., `c := &initCmd{}`)
+   - **IMPORTANT**: Create a mock `*cobra.Command` and set up required flags
+   - **IMPORTANT**: Call `c.preRun(cmd, args)` directly - DO NOT call `rootCmd.Execute()`
    - Use `t.Run()` for subtests within a parent test function
    - Test with different argument/flag combinations
-   - Verify struct fields are set correctly
+   - Verify struct fields are set correctly after `preRun()` executes
    - Use `t.TempDir()` for temporary directories (automatic cleanup)
 
-2. **E2E Tests** - Test the full command execution:
-   - Execute via `rootCmd.Execute()`
+   **Example:**
+   ```go
+   func TestMyCmd_PreRun(t *testing.T) {
+       t.Run("sets fields correctly", func(t *testing.T) {
+           t.Parallel()
+
+           storageDir := t.TempDir()
+
+           c := &myCmd{}  // Create command struct instance
+           cmd := &cobra.Command{}  // Create mock cobra command
+           cmd.Flags().String("storage", storageDir, "test storage flag")
+
+           args := []string{"arg1"}
+
+           err := c.preRun(cmd, args)  // Call preRun directly
+           if err != nil {
+               t.Fatalf("preRun() failed: %v", err)
+           }
+
+           // Assert on struct fields
+           if c.manager == nil {
+               t.Error("Expected manager to be created")
+           }
+       })
+   }
+   ```
+
+2. **E2E Tests** - Test the full command execution including Cobra wiring:
+   - Execute via `rootCmd.Execute()` to test the complete flow
    - Use real temp directories with `t.TempDir()`
    - Verify output messages
    - Verify persistence (check storage/database)
    - Verify all field values from `manager.List()` or similar
    - Test multiple scenarios (default args, custom args, edge cases)
+   - Test Cobra's argument validation (e.g., required args, arg counts)
 
-**Reference:** See `pkg/cmd/init_test.go` for complete examples of both `preRun` unit tests (in `TestInitCmd_PreRun`) and E2E tests (in `TestInitCmd_E2E`).
+   **Example:**
+   ```go
+   func TestMyCmd_E2E(t *testing.T) {
+       t.Run("executes successfully", func(t *testing.T) {
+           t.Parallel()
+
+           storageDir := t.TempDir()
+
+           rootCmd := NewRootCmd()  // Use full command construction
+           rootCmd.SetArgs([]string{"mycommand", "arg1", "--storage", storageDir})
+
+           err := rootCmd.Execute()  // Execute the full command
+           if err != nil {
+               t.Fatalf("Execute() failed: %v", err)
+           }
+
+           // Verify results in storage
+           manager, _ := instances.NewManager(storageDir)
+           instancesList, _ := manager.List()
+           // ... assert on results
+       })
+   }
+   ```
+
+**Reference:** See `pkg/cmd/init_test.go`, `pkg/cmd/workspace_list_test.go`, and `pkg/cmd/workspace_remove_test.go` for complete examples of both `preRun` unit tests (in `Test*Cmd_PreRun`) and E2E tests (in `Test*Cmd_E2E`).
 
 ### Working with the Instances Manager
 
