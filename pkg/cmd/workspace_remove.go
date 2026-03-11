@@ -79,9 +79,11 @@ func NewWorkspaceRemoveCmd() *cobra.Command {
 	c := &workspaceRemoveCmd{}
 
 	cmd := &cobra.Command{
-		Use:     "remove ID",
-		Short:   "Remove a workspace",
-		Long:    "Remove a workspace by its ID",
+		Use:   "remove ID",
+		Short: "Remove a workspace",
+		Long:  "Remove a workspace by its ID",
+		Example: `# Remove workspace by ID
+kortex-cli workspace remove abc123`,
 		Args:    cobra.ExactArgs(1),
 		PreRunE: c.preRun,
 		RunE:    c.run,

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kortex-hub/kortex-cli/pkg/cmd/testutil"
 	"github.com/kortex-hub/kortex-cli/pkg/instances"
 	"github.com/spf13/cobra"
 )
@@ -1002,4 +1003,35 @@ func TestInitCmd_E2E(t *testing.T) {
 			t.Errorf("Expected 0 instances, got %d", len(instancesList))
 		}
 	})
+}
+
+func TestInitCmd_Examples(t *testing.T) {
+	t.Parallel()
+
+	// Get the init command
+	initCmd := NewInitCmd()
+
+	// Verify Example field is not empty
+	if initCmd.Example == "" {
+		t.Fatal("Example field should not be empty")
+	}
+
+	// Parse the examples
+	commands, err := testutil.ParseExampleCommands(initCmd.Example)
+	if err != nil {
+		t.Fatalf("Failed to parse examples: %v", err)
+	}
+
+	// Verify we have the expected number of examples
+	expectedCount := 4
+	if len(commands) != expectedCount {
+		t.Errorf("Expected %d example commands, got %d", expectedCount, len(commands))
+	}
+
+	// Validate all examples against the root command
+	rootCmd := NewRootCmd()
+	err = testutil.ValidateCommandExamples(rootCmd, initCmd.Example)
+	if err != nil {
+		t.Errorf("Example validation failed: %v", err)
+	}
 }

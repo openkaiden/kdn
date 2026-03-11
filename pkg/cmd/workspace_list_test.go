@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	api "github.com/kortex-hub/kortex-cli-api/cli/go"
+	"github.com/kortex-hub/kortex-cli/pkg/cmd/testutil"
 	"github.com/kortex-hub/kortex-cli/pkg/instances"
 	"github.com/spf13/cobra"
 )
@@ -479,5 +480,35 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 			t.Errorf("Expected Configuration %s, got %s", addedInstance.GetConfigDir(), workspace.Paths.Configuration)
 		}
 	})
+}
 
+func TestWorkspaceListCmd_Examples(t *testing.T) {
+	t.Parallel()
+
+	// Get the workspace list command
+	listCmd := NewWorkspaceListCmd()
+
+	// Verify Example field is not empty
+	if listCmd.Example == "" {
+		t.Fatal("Example field should not be empty")
+	}
+
+	// Parse the examples
+	commands, err := testutil.ParseExampleCommands(listCmd.Example)
+	if err != nil {
+		t.Fatalf("Failed to parse examples: %v", err)
+	}
+
+	// Verify we have the expected number of examples
+	expectedCount := 3
+	if len(commands) != expectedCount {
+		t.Errorf("Expected %d example commands, got %d", expectedCount, len(commands))
+	}
+
+	// Validate all examples against the root command
+	rootCmd := NewRootCmd()
+	err = testutil.ValidateCommandExamples(rootCmd, listCmd.Example)
+	if err != nil {
+		t.Errorf("Example validation failed: %v", err)
+	}
 }
