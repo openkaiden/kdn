@@ -24,10 +24,12 @@ import (
 
 // ExampleCommand represents a parsed command from an Example string
 type ExampleCommand struct {
-	Raw    string            // Original command line
-	Binary string            // Binary name (should be "kortex-cli")
-	Args   []string          // Subcommands and positional arguments
-	Flags  map[string]string // Flag names to values (without -- or -)
+	Raw         string            // Original command line
+	Binary      string            // Binary name (should be "kortex-cli")
+	Args        []string          // Subcommands and positional arguments
+	FlagPresent map[string]bool   // Flags that were present in the command
+	FlagValues  map[string]string // Values for flags (empty string if no value provided)
+	Flags       map[string]string // Deprecated: use FlagPresent and FlagValues instead
 }
 
 // ParseExampleCommands extracts kortex-cli commands from Example string
@@ -76,10 +78,12 @@ func parseCommandLine(line string) (ExampleCommand, error) {
 	}
 
 	cmd := ExampleCommand{
-		Raw:    line,
-		Binary: parts[0],
-		Args:   []string{},
-		Flags:  make(map[string]string),
+		Raw:         line,
+		Binary:      parts[0],
+		Args:        []string{},
+		FlagPresent: make(map[string]bool),
+		FlagValues:  make(map[string]string),
+		Flags:       make(map[string]string),
 	}
 
 	// Parse remaining parts as args and flags
@@ -88,12 +92,20 @@ func parseCommandLine(line string) (ExampleCommand, error) {
 
 		if strings.HasPrefix(part, "--") {
 			// Long flag
-			flagName, flagValue := parseLongFlag(part, parts, &i)
+			flagName, flagValue, hasValue := parseLongFlag(part, parts, &i)
+			cmd.FlagPresent[flagName] = true
+			cmd.FlagValues[flagName] = flagValue
+			// Maintain backward compatibility with deprecated Flags field
 			cmd.Flags[flagName] = flagValue
+			_ = hasValue // Will be used in validation
 		} else if strings.HasPrefix(part, "-") && len(part) > 1 {
 			// Short flag
-			flagName, flagValue := parseShortFlag(part, parts, &i)
+			flagName, flagValue, hasValue := parseShortFlag(part, parts, &i)
+			cmd.FlagPresent[flagName] = true
+			cmd.FlagValues[flagName] = flagValue
+			// Maintain backward compatibility with deprecated Flags field
 			cmd.Flags[flagName] = flagValue
+			_ = hasValue // Will be used in validation
 		} else {
 			// Positional argument
 			cmd.Args = append(cmd.Args, part)
@@ -104,38 +116,40 @@ func parseCommandLine(line string) (ExampleCommand, error) {
 }
 
 // parseLongFlag parses a long flag (--flag or --flag=value or --flag value)
-func parseLongFlag(part string, parts []string, i *int) (string, string) {
+// Returns: flagName, flagValue, hasValue
+func parseLongFlag(part string, parts []string, i *int) (string, string, bool) {
 	// Remove -- prefix
 	flagPart := strings.TrimPrefix(part, "--")
 
 	// Check for --flag=value format
 	if idx := strings.Index(flagPart, "="); idx != -1 {
-		return flagPart[:idx], flagPart[idx+1:]
+		return flagPart[:idx], flagPart[idx+1:], true
 	}
 
 	// Check for --flag value format
 	if *i+1 < len(parts) && !strings.HasPrefix(parts[*i+1], "-") {
 		*i++
-		return flagPart, parts[*i]
+		return flagPart, parts[*i], true
 	}
 
-	// Boolean flag (--flag with no value)
-	return flagPart, ""
+	// Flag with no value (--flag)
+	return flagPart, "", false
 }
 
 // parseShortFlag parses a short flag (-f or -f value)
-func parseShortFlag(part string, parts []string, i *int) (string, string) {
+// Returns: flagName, flagValue, hasValue
+func parseShortFlag(part string, parts []string, i *int) (string, string, bool) {
 	// Remove - prefix
 	flagPart := strings.TrimPrefix(part, "-")
 
 	// Check for -f value format
 	if *i+1 < len(parts) && !strings.HasPrefix(parts[*i+1], "-") {
 		*i++
-		return flagPart, parts[*i]
+		return flagPart, parts[*i], true
 	}
 
-	// Boolean flag (-f with no value)
-	return flagPart, ""
+	// Flag with no value (-f)
+	return flagPart, "", false
 }
 
 // splitCommandLine splits a command line by whitespace
@@ -190,7 +204,7 @@ func ValidateExampleCommand(rootCmd *cobra.Command, exampleCmd ExampleCommand) e
 	}
 
 	// Validate each flag
-	for flagName := range exampleCmd.Flags {
+	for flagName := range exampleCmd.FlagPresent {
 		var flag *pflag.Flag
 
 		// Determine if this is a short flag (single character)
@@ -229,6 +243,22 @@ func ValidateExampleCommand(rootCmd *cobra.Command, exampleCmd ExampleCommand) e
 				prefix = "-"
 			}
 			return fmt.Errorf("flag %s%s not found in command: %s", prefix, flagName, cmdPath)
+		}
+
+		// Validate that flags requiring values have values
+		// A flag requires a value if:
+		// - It's present in the command line
+		// - It has no value (empty string)
+		// - NoOptDefVal is empty (meaning the flag doesn't accept being used without a value)
+		// - It's not a boolean flag
+		flagValue := exampleCmd.FlagValues[flagName]
+		if flagValue == "" && flag.NoOptDefVal == "" && flag.Value.Type() != "bool" {
+			cmdPath := cmd.CommandPath()
+			prefix := "--"
+			if isShortFlag {
+				prefix = "-"
+			}
+			return fmt.Errorf("flag %s%s requires a value in command: %s", prefix, flagName, cmdPath)
 		}
 	}
 
