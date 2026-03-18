@@ -31,6 +31,7 @@ import (
 
     "github.com/spf13/cobra"
     "github.com/kortex-hub/kortex-cli/pkg/instances"
+    // "github.com/kortex-hub/kortex-cli/pkg/runtimesetup"  // Uncomment if registering runtimes
     // Add other imports as needed
 )
 
@@ -94,6 +95,14 @@ func (c *<command>Cmd) preRun(cmd *cobra.Command, args []string) error {
         return outputErrorIfJSON(cmd, c.output, fmt.Errorf("failed to create manager: %w", err))
     }
     c.manager = manager
+
+    // Register runtimes if your command interacts with workspaces
+    // (e.g., Start, Stop, Remove, Create operations)
+    // Commands that only list or query workspaces don't need this
+    //
+    // if err := runtimesetup.RegisterAll(manager); err != nil {
+    //     return outputErrorIfJSON(cmd, c.output, fmt.Errorf("failed to register runtimes: %w", err))
+    // }
 
     return nil
 }
@@ -287,6 +296,7 @@ If the command warrants user-facing documentation, update relevant docs.
 - **Examples**: Include 3-5 clear examples showing common use cases
 - **Testing**: Create both unit tests (preRun) and E2E tests (full execution)
 - **Example Validation**: Always add a Test<Command>Cmd_Examples test
+- **Runtime Registration**: Commands that perform runtime operations (Create, Start, Stop, Remove) need to call `runtimesetup.RegisterAll(manager)` in preRun. Commands that only query or list workspaces don't need this.
 
 ## References
 

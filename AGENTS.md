@@ -186,6 +186,41 @@ type InstanceData struct {
 }
 ```
 
+### Runtime System
+
+The runtime system provides a pluggable architecture for managing workspaces on different container/VM platforms (Podman, MicroVM, Kubernetes, etc.).
+
+**Key Components:**
+- **Runtime Interface** (`pkg/runtime/runtime.go`): Contract all runtimes must implement
+- **Registry** (`pkg/runtime/registry.go`): Manages runtime registration and discovery
+- **Runtime Implementations** (`pkg/runtime/<runtime-name>/`): Platform-specific packages (e.g., `fake`)
+- **Centralized Registration** (`pkg/runtimesetup/register.go`): Automatically registers all available runtimes
+
+**Adding a New Runtime:**
+
+Use the `/add-runtime` skill which provides step-by-step instructions for creating a new runtime implementation. The `fake` runtime in `pkg/runtime/fake/` serves as a reference implementation.
+
+**Runtime Registration in Commands:**
+
+Commands use `runtimesetup.RegisterAll()` to automatically register all available runtimes:
+
+```go
+import "github.com/kortex-hub/kortex-cli/pkg/runtimesetup"
+
+// In command preRun
+manager, err := instances.NewManager(storageDir)
+if err != nil {
+    return err
+}
+
+// Register all available runtimes
+if err := runtimesetup.RegisterAll(manager); err != nil {
+    return err
+}
+```
+
+This automatically registers all runtimes from `pkg/runtimesetup/register.go` that report as available (e.g., only registers Podman if `podman` CLI is installed).
+
 ### Skills System
 Skills are reusable capabilities that can be discovered and executed by AI agents:
 - **Location**: `skills/<skill-name>/SKILL.md`
