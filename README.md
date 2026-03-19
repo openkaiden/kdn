@@ -321,6 +321,211 @@ kortex-cli list
 kortex-cli list --storage /tmp/kortex-storage
 ```
 
+## Workspace Configuration
+
+Each workspace can optionally include a configuration file that customizes the environment and mount behavior for that specific workspace. The configuration is stored in a `workspace.json` file within the workspace's configuration directory (typically `.kortex` in the sources directory).
+
+### Configuration File Location
+
+By default, workspace configuration is stored at:
+```text
+<sources-directory>/.kortex/workspace.json
+```
+
+The configuration directory (containing `workspace.json`) can be customized using the `--workspace-configuration` flag when registering a workspace with `init`. The flag accepts a directory path, not the file path itself.
+
+### Configuration Structure
+
+The `workspace.json` file uses a nested JSON structure:
+
+```json
+{
+  "environment": [
+    {
+      "name": "DEBUG",
+      "value": "true"
+    },
+    {
+      "name": "API_KEY",
+      "secret": "github-token"
+    }
+  ],
+  "mounts": {
+    "dependencies": ["../main", "../../lib"],
+    "configs": [".ssh", ".gitconfig"]
+  }
+}
+```
+
+### Environment Variables
+
+Define environment variables that will be set in the workspace runtime environment.
+
+**Structure:**
+```json
+{
+  "environment": [
+    {
+      "name": "VAR_NAME",
+      "value": "hardcoded-value"
+    },
+    {
+      "name": "SECRET_VAR",
+      "secret": "secret-reference"
+    }
+  ]
+}
+```
+
+**Fields:**
+- `name` (required) - Environment variable name
+  - Must be a valid Unix environment variable name
+  - Must start with a letter or underscore
+  - Can contain letters, digits, and underscores
+- `value` (optional) - Hardcoded value for the variable
+  - Mutually exclusive with `secret`
+  - Empty strings are allowed
+- `secret` (optional) - Reference to a secret containing the value
+  - Mutually exclusive with `value`
+  - Cannot be empty
+
+**Validation Rules:**
+- Variable name cannot be empty
+- Exactly one of `value` or `secret` must be defined
+- Variable names must follow Unix conventions (e.g., `DEBUG`, `API_KEY`, `MY_VAR_123`)
+- Invalid names include those starting with digits (`1INVALID`) or containing special characters (`INVALID-NAME`, `INVALID@NAME`)
+
+### Mount Paths
+
+Configure additional directories to mount in the workspace runtime.
+
+**Structure:**
+```json
+{
+  "mounts": {
+    "dependencies": ["../main"],
+    "configs": [".claude", ".gitconfig"]
+  }
+}
+```
+
+**Fields:**
+- `dependencies` (optional) - Additional source directories to mount
+  - Paths are relative to the workspace sources directory
+  - Useful for git worktrees
+- `configs` (optional) - Configuration directories to mount from the user's home directory
+  - Paths are relative to `$HOME`
+  - Useful for sharing Git configs, or tool configurations
+
+**Validation Rules:**
+- All paths must be relative (not absolute)
+- Paths cannot be empty
+- Absolute paths like `/absolute/path` are rejected
+
+### Configuration Validation
+
+When you register a workspace with `kortex-cli init`, the configuration is automatically validated. If `workspace.json` exists and contains invalid data, the registration will fail with a descriptive error message.
+
+**Example - Invalid configuration (both value and secret set):**
+```bash
+$ kortex-cli init /path/to/project --runtime fake
+```
+```text
+Error: workspace configuration validation failed: invalid workspace configuration:
+environment variable "API_KEY" (index 0) has both value and secret set
+```
+
+**Example - Invalid configuration (absolute path in mounts):**
+```bash
+$ kortex-cli init /path/to/project --runtime fake
+```
+```text
+Error: workspace configuration validation failed: invalid workspace configuration:
+dependency mount "/absolute/path" (index 0) must be a relative path
+```
+
+### Configuration Examples
+
+**Basic environment variables:**
+```json
+{
+  "environment": [
+    {
+      "name": "NODE_ENV",
+      "value": "development"
+    },
+    {
+      "name": "DEBUG",
+      "value": "true"
+    }
+  ]
+}
+```
+
+**Using secrets:**
+```json
+{
+  "environment": [
+    {
+      "name": "API_TOKEN",
+      "secret": "github-api-token"
+    }
+  ]
+}
+```
+
+**git worktree:**
+```json
+{
+  "mounts": {
+    "dependencies": [
+      "../main"
+    ]
+  }
+}
+```
+
+**Sharing user configurations:**
+```json
+{
+  "mounts": {
+    "configs": [
+      ".claude",
+      ".gitconfig",
+      ".kube/config"
+    ]
+  }
+}
+```
+
+**Complete configuration:**
+```json
+{
+  "environment": [
+    {
+      "name": "NODE_ENV",
+      "value": "development"
+    },
+    {
+      "name": "DATABASE_URL",
+      "secret": "local-db-url"
+    }
+  ],
+  "mounts": {
+    "dependencies": ["../main"],
+    "configs": [".claude", ".gitconfig"]
+  }
+}
+```
+
+### Notes
+
+- Configuration is **optional** - workspaces can be registered without a `workspace.json` file
+- The configuration file is validated only when it exists
+- Validation errors are caught early during workspace registration (`init` command)
+- All validation rules are enforced to prevent runtime errors
+- The configuration model is imported from the `github.com/kortex-hub/kortex-cli-api/workspace-configuration/go` package for consistency across tools
+
 ## Commands
 
 ### `init` - Register a New Workspace
