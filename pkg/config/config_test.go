@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -534,6 +535,55 @@ func TestConfig_Load(t *testing.T) {
 		}
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("Expected ErrInvalidConfig, got %v", err)
+		}
+	})
+
+	t.Run("rejects config with duplicate env var names", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		configDir := filepath.Join(tempDir, ".kortex")
+
+		// Create the config directory
+		err := os.MkdirAll(configDir, 0755)
+		if err != nil {
+			t.Fatalf("os.MkdirAll() failed: %v", err)
+		}
+
+		// Write workspace.json with duplicate names
+		workspaceJSON := `{
+  "environment": [
+    {
+      "name": "DEBUG",
+      "value": "true"
+    },
+    {
+      "name": "DEBUG",
+      "value": "false"
+    }
+  ]
+}`
+		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
+		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
+		if err != nil {
+			t.Fatalf("os.WriteFile() failed: %v", err)
+		}
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		// Load should fail with validation error
+		_, err = cfg.Load()
+		if err == nil {
+			t.Fatal("Expected error for duplicate env var names, got nil")
+		}
+		if !errors.Is(err, ErrInvalidConfig) {
+			t.Errorf("Expected ErrInvalidConfig, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "duplicate") {
+			t.Errorf("Expected error message to mention duplicate, got: %v", err)
 		}
 	})
 

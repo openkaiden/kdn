@@ -70,11 +70,18 @@ var _ Config = (*config)(nil)
 // and that mount paths are non-empty and relative.
 func (c *config) validate(cfg *workspace.WorkspaceConfiguration) error {
 	if cfg.Environment != nil {
+		seen := make(map[string]int)
 		for i, env := range *cfg.Environment {
 			// Check that name is not empty
 			if env.Name == "" {
 				return fmt.Errorf("%w: environment variable at index %d has empty name", ErrInvalidConfig, i)
 			}
+
+			// Check for duplicate names
+			if prevIdx, exists := seen[env.Name]; exists {
+				return fmt.Errorf("%w: environment variable %q (index %d) is a duplicate of index %d", ErrInvalidConfig, env.Name, i, prevIdx)
+			}
+			seen[env.Name] = i
 
 			// Check that name is a valid Unix environment variable name
 			if !envVarNamePattern.MatchString(env.Name) {
