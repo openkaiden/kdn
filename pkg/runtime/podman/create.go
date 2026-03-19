@@ -131,8 +131,6 @@ func (p *podmanRuntime) buildImage(ctx context.Context, imageName, instanceDir s
 		"-t", imageName,
 		"-f", containerfilePath,
 		instanceDir)
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("failed to build podman image: %w", err)
 	}
@@ -204,8 +202,6 @@ func (p *podmanRuntime) buildContainerArgs(params runtime.CreateParams, imageNam
 // createContainer creates a podman container.
 func (p *podmanRuntime) createContainer(ctx context.Context, args []string) error {
 	createCmd := exec.CommandContext(ctx, "podman", args...)
-	createCmd.Stdout = os.Stdout
-	createCmd.Stderr = os.Stderr
 	if err := createCmd.Run(); err != nil {
 		return fmt.Errorf("failed to create podman container: %w", err)
 	}
