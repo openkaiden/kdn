@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 	"github.com/kortex-hub/kortex-cli/pkg/generator"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
 )
@@ -37,10 +38,20 @@ const (
 // InstanceFactory is a function that creates an Instance from InstanceData
 type InstanceFactory func(InstanceData) (Instance, error)
 
+// AddOptions contains parameters for adding a new instance
+type AddOptions struct {
+	// Instance is the instance to add
+	Instance Instance
+	// RuntimeType is the type of runtime to use
+	RuntimeType string
+	// WorkspaceConfig is the loaded workspace configuration (optional, can be nil)
+	WorkspaceConfig *workspace.WorkspaceConfiguration
+}
+
 // Manager handles instance storage and operations
 type Manager interface {
 	// Add registers a new instance with a runtime and returns the instance with its generated ID
-	Add(ctx context.Context, inst Instance, runtimeType string) (Instance, error)
+	Add(ctx context.Context, opts AddOptions) (Instance, error)
 	// Start starts a runtime instance by ID
 	Start(ctx context.Context, id string) error
 	// Stop stops a runtime instance by ID
@@ -116,13 +127,15 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 // If the instance name is empty, a unique name is generated from the source directory.
 // The runtime instance is created but not started.
 // Returns the instance with its generated ID, name, and runtime information.
-func (m *manager) Add(ctx context.Context, inst Instance, runtimeType string) (Instance, error) {
-	if inst == nil {
+func (m *manager) Add(ctx context.Context, opts AddOptions) (Instance, error) {
+	if opts.Instance == nil {
 		return nil, errors.New("instance cannot be nil")
 	}
-	if runtimeType == "" {
+	if opts.RuntimeType == "" {
 		return nil, errors.New("runtime type cannot be empty")
 	}
+
+	inst := opts.Instance
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -159,16 +172,16 @@ func (m *manager) Add(ctx context.Context, inst Instance, runtimeType string) (I
 	}
 
 	// Get the runtime
-	rt, err := m.runtimeRegistry.Get(runtimeType)
+	rt, err := m.runtimeRegistry.Get(opts.RuntimeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime: %w", err)
 	}
 
 	// Create runtime instance
 	runtimeInfo, err := rt.Create(ctx, runtime.CreateParams{
-		Name:       name,
-		SourcePath: inst.GetSourceDir(),
-		ConfigPath: inst.GetConfigDir(),
+		Name:            name,
+		SourcePath:      inst.GetSourceDir(),
+		WorkspaceConfig: opts.WorkspaceConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create runtime instance: %w", err)
@@ -181,7 +194,7 @@ func (m *manager) Add(ctx context.Context, inst Instance, runtimeType string) (I
 		SourceDir: inst.GetSourceDir(),
 		ConfigDir: inst.GetConfigDir(),
 		Runtime: RuntimeData{
-			Type:       runtimeType,
+			Type:       opts.RuntimeType,
 			InstanceID: runtimeInfo.ID,
 			State:      runtimeInfo.State,
 			Info:       runtimeInfo.Info,

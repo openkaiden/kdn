@@ -250,7 +250,7 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 			t.Fatalf("Failed to register fake runtime: %v", err)
 		}
 
-		addedInstance, err := manager.Add(context.Background(), instance, "fake")
+		addedInstance, err := manager.Add(context.Background(), instances.AddOptions{Instance: instance, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Failed to add instance: %v", err)
 		}
@@ -320,12 +320,12 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 			t.Fatalf("Failed to register fake runtime: %v", err)
 		}
 
-		addedInstance1, err := manager.Add(context.Background(), instance1, "fake")
+		addedInstance1, err := manager.Add(context.Background(), instances.AddOptions{Instance: instance1, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Failed to add instance 1: %v", err)
 		}
 
-		addedInstance2, err := manager.Add(context.Background(), instance2, "fake")
+		addedInstance2, err := manager.Add(context.Background(), instances.AddOptions{Instance: instance2, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Failed to add instance 2: %v", err)
 		}
@@ -402,7 +402,7 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 			t.Fatalf("Failed to register fake runtime: %v", err)
 		}
 
-		addedInstance, err := manager.Add(context.Background(), instance, "fake")
+		addedInstance, err := manager.Add(context.Background(), instances.AddOptions{Instance: instance, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Failed to add instance: %v", err)
 		}
@@ -495,7 +495,7 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 			t.Fatalf("Failed to register fake runtime: %v", err)
 		}
 
-		addedInstance, err := manager.Add(context.Background(), instance, "fake")
+		addedInstance, err := manager.Add(context.Background(), instances.AddOptions{Instance: instance, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Failed to add instance: %v", err)
 		}

@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
+	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 	"github.com/kortex-hub/kortex-cli/pkg/config"
 	"github.com/kortex-hub/kortex-cli/pkg/instances"
 	"github.com/kortex-hub/kortex-cli/pkg/runtimesetup"
@@ -40,6 +41,7 @@ type initCmd struct {
 	absSourcesDir      string
 	absConfigDir       string
 	manager            instances.Manager
+	workspaceConfig    *workspace.WorkspaceConfiguration
 	verbose            bool
 	output             string
 }
@@ -130,19 +132,20 @@ func (i *initCmd) preRun(cmd *cobra.Command, args []string) error {
 	}
 	i.absConfigDir = absConfigDir
 
-	// Validate workspace configuration if it exists
+	// Load and validate workspace configuration if it exists
 	cfg, err := config.NewConfig(i.absConfigDir)
 	if err != nil {
 		return outputErrorIfJSON(cmd, i.output, fmt.Errorf("failed to create config manager: %w", err))
 	}
 
-	_, err = cfg.Load()
+	workspaceConfig, err := cfg.Load()
 	if err != nil {
 		// ErrConfigNotFound is acceptable - configuration is optional
 		if !errors.Is(err, config.ErrConfigNotFound) {
 			return outputErrorIfJSON(cmd, i.output, fmt.Errorf("workspace configuration validation failed: %w", err))
 		}
 	}
+	i.workspaceConfig = workspaceConfig
 
 	return nil
 }
@@ -159,8 +162,12 @@ func (i *initCmd) run(cmd *cobra.Command, args []string) error {
 		return outputErrorIfJSON(cmd, i.output, err)
 	}
 
-	// Add the instance to the manager with runtime
-	addedInstance, err := i.manager.Add(cmd.Context(), instance, i.runtime)
+	// Add the instance to the manager with runtime and workspace configuration
+	addedInstance, err := i.manager.Add(cmd.Context(), instances.AddOptions{
+		Instance:        instance,
+		RuntimeType:     i.runtime,
+		WorkspaceConfig: i.workspaceConfig,
+	})
 	if err != nil {
 		return outputErrorIfJSON(cmd, i.output, err)
 	}

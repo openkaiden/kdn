@@ -50,7 +50,6 @@ type instanceState struct {
 	State  string            `json:"state"`
 	Info   map[string]string `json:"info"`
 	Source string            `json:"source"`
-	Config string            `json:"config"`
 }
 
 // persistedData is the structure stored on disk
@@ -174,9 +173,6 @@ func (f *fakeRuntime) Create(ctx context.Context, params runtime.CreateParams) (
 	if params.SourcePath == "" {
 		return runtime.RuntimeInfo{}, fmt.Errorf("%w: source path is required", runtime.ErrInvalidParams)
 	}
-	if params.ConfigPath == "" {
-		return runtime.RuntimeInfo{}, fmt.Errorf("%w: config path is required", runtime.ErrInvalidParams)
-	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -193,17 +189,25 @@ func (f *fakeRuntime) Create(ctx context.Context, params runtime.CreateParams) (
 	f.nextID++
 
 	// Create instance state
+	info := map[string]string{
+		"created_at": time.Now().Format(time.RFC3339),
+		"source":     params.SourcePath,
+	}
+
+	// Add workspace config info if provided
+	if params.WorkspaceConfig != nil {
+		info["has_config"] = "true"
+		if params.WorkspaceConfig.Environment != nil {
+			info["env_vars_count"] = fmt.Sprintf("%d", len(*params.WorkspaceConfig.Environment))
+		}
+	}
+
 	state := &instanceState{
 		ID:     id,
 		Name:   params.Name,
 		State:  "created",
 		Source: params.SourcePath,
-		Config: params.ConfigPath,
-		Info: map[string]string{
-			"created_at": time.Now().Format(time.RFC3339),
-			"source":     params.SourcePath,
-			"config":     params.ConfigPath,
-		},
+		Info:   info,
 	}
 
 	f.instances[id] = state

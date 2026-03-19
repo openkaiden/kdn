@@ -252,7 +252,7 @@ func TestNewManager(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, addErr := manager.Add(context.Background(), inst, "fake")
+		_, addErr := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 		if addErr != nil {
 			t.Fatalf("Failed to add instance: %v", addErr)
 		}
@@ -279,7 +279,7 @@ func TestManager_Add(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		added, err := manager.Add(context.Background(), inst, "fake")
+		added, err := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 		if err != nil {
 			t.Fatalf("Add() unexpected error = %v", err)
 		}
@@ -303,7 +303,7 @@ func TestManager_Add(t *testing.T) {
 		tmpDir := t.TempDir()
 		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir))
 
-		_, err := manager.Add(context.Background(), nil, "fake")
+		_, err := manager.Add(context.Background(), AddOptions{Instance: nil, RuntimeType: "fake"})
 		if err == nil {
 			t.Error("Add() expected error for nil instance, got nil")
 		}
@@ -338,8 +338,8 @@ func TestManager_Add(t *testing.T) {
 			Accessible: true,
 		})
 
-		added1, _ := manager.Add(ctx, inst1, "fake")
-		added2, _ := manager.Add(ctx, inst2, "fake")
+		added1, _ := manager.Add(ctx, AddOptions{Instance: inst1, RuntimeType: "fake"})
+		added2, _ := manager.Add(ctx, AddOptions{Instance: inst2, RuntimeType: "fake"})
 
 		id1 := added1.GetID()
 		id2 := added2.GetID()
@@ -382,7 +382,7 @@ func TestManager_Add(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, _ = manager.Add(context.Background(), inst, "fake")
+		_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		// Check that JSON file exists and is readable
 		storageFile := filepath.Join(tmpDir, DefaultStorageFileName)
@@ -419,9 +419,9 @@ func TestManager_Add(t *testing.T) {
 			Accessible: true,
 		})
 
-		_, _ = manager.Add(ctx, inst1, "fake")
-		_, _ = manager.Add(ctx, inst2, "fake")
-		_, _ = manager.Add(ctx, inst3, "fake")
+		_, _ = manager.Add(ctx, AddOptions{Instance: inst1, RuntimeType: "fake"})
+		_, _ = manager.Add(ctx, AddOptions{Instance: inst2, RuntimeType: "fake"})
+		_, _ = manager.Add(ctx, AddOptions{Instance: inst3, RuntimeType: "fake"})
 
 		instances, _ := manager.List()
 		if len(instances) != 3 {
@@ -467,8 +467,8 @@ func TestManager_List(t *testing.T) {
 			Accessible: true,
 		})
 
-		_, _ = manager.Add(ctx, inst1, "fake")
-		_, _ = manager.Add(ctx, inst2, "fake")
+		_, _ = manager.Add(ctx, AddOptions{Instance: inst1, RuntimeType: "fake"})
+		_, _ = manager.Add(ctx, AddOptions{Instance: inst2, RuntimeType: "fake"})
 
 		instances, err := manager.List()
 		if err != nil {
@@ -516,7 +516,7 @@ func TestManager_Get(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager.Add(context.Background(), inst, "fake")
+		added, _ := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -566,7 +566,7 @@ func TestManager_Delete(t *testing.T) {
 			ConfigDir:  configDir,
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -616,8 +616,8 @@ func TestManager_Delete(t *testing.T) {
 			ConfigDir:  config2,
 			Accessible: true,
 		})
-		added1, _ := manager.Add(ctx, inst1, "fake")
-		added2, _ := manager.Add(ctx, inst2, "fake")
+		added1, _ := manager.Add(ctx, AddOptions{Instance: inst1, RuntimeType: "fake"})
+		added2, _ := manager.Add(ctx, AddOptions{Instance: inst2, RuntimeType: "fake"})
 
 		id1 := added1.GetID()
 		id2 := added2.GetID()
@@ -649,7 +649,7 @@ func TestManager_Delete(t *testing.T) {
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager1.Add(ctx, inst, "fake")
+		added, _ := manager1.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -680,7 +680,7 @@ func TestManager_Start(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		// After Add, state should be "created"
 		if added.GetRuntimeData().State != "created" {
@@ -741,7 +741,7 @@ func TestManager_Start(t *testing.T) {
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		// Manually save instance without runtime to simulate old data
 		instances := []Instance{&fakeInstance{
@@ -781,7 +781,7 @@ func TestManager_Start(t *testing.T) {
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager1.Add(ctx, inst, "fake")
+		added, _ := manager1.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 		manager1.Start(ctx, added.GetID())
 
 		// Create new manager with same storage
@@ -810,7 +810,7 @@ func TestManager_Stop(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 		manager.Start(ctx, added.GetID())
 
 		// Verify state is "running"
@@ -856,7 +856,7 @@ func TestManager_Stop(t *testing.T) {
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		// Manually save instance without runtime to simulate old data
 		instances := []Instance{&fakeInstance{
@@ -896,7 +896,7 @@ func TestManager_Stop(t *testing.T) {
 			ConfigDir:  filepath.Join(string(filepath.Separator), "tmp", "config"),
 			Accessible: true,
 		})
-		added, _ := manager1.Add(ctx, inst, "fake")
+		added, _ := manager1.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 		manager1.Start(ctx, added.GetID())
 		manager1.Stop(ctx, added.GetID())
 
@@ -922,7 +922,7 @@ func TestManager_Stop(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		added, _ := manager.Add(ctx, inst, "fake")
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		// State is "created", try to stop
 		err := manager.Stop(ctx, added.GetID())
@@ -967,7 +967,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(context.Background(), inst, "fake")
+		_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -1011,7 +1011,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "nonexistent-config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(context.Background(), inst, "fake")
+		_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -1055,7 +1055,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: false,
 		})
-		added, _ := manager.Add(context.Background(), inst, "fake")
+		added, _ := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -1105,7 +1105,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  accessibleConfig,
 			Accessible: true,
 		})
-		_, _ = manager.Add(ctx, accessible, "fake")
+		_, _ = manager.Add(ctx, AddOptions{Instance: accessible, RuntimeType: "fake"})
 
 		// Add inaccessible instance
 		inaccessible := newFakeInstance(newFakeInstanceParams{
@@ -1113,7 +1113,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "nonexistent-config"),
 			Accessible: false,
 		})
-		_, _ = manager.Add(ctx, inaccessible, "fake")
+		_, _ = manager.Add(ctx, AddOptions{Instance: inaccessible, RuntimeType: "fake"})
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -1146,7 +1146,7 @@ func TestManager_Reconcile(t *testing.T) {
 			ConfigDir:  filepath.Join(instanceTmpDir, "config"),
 			Accessible: true,
 		})
-		_, _ = manager.Add(context.Background(), inst, "fake")
+		_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		removed, err := manager.Reconcile()
 		if err != nil {
@@ -1193,7 +1193,7 @@ func TestManager_Persistence(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager1.Add(context.Background(), inst, "fake")
+		added, _ := manager1.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -1229,7 +1229,7 @@ func TestManager_Persistence(t *testing.T) {
 			ConfigDir:  expectedConfig,
 			Accessible: true,
 		})
-		added, _ := manager.Add(context.Background(), inst, "fake")
+		added, _ := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 
 		generatedID := added.GetID()
 
@@ -1288,7 +1288,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 					ConfigDir:  configDir,
 					Accessible: true,
 				})
-				_, _ = manager.Add(context.Background(), inst, "fake")
+				_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 			}(i)
 		}
 
@@ -1316,7 +1316,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 				ConfigDir:  configDir,
 				Accessible: true,
 			})
-			_, _ = manager.Add(context.Background(), inst, "fake")
+			_, _ = manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
 		}
 
 		var wg sync.WaitGroup

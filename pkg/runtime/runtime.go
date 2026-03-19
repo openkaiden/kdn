@@ -16,7 +16,11 @@
 // A runtime is an execution environment (e.g., container, process) that hosts a workspace instance.
 package runtime
 
-import "context"
+import (
+	"context"
+
+	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
+)
 
 // Runtime manages the lifecycle of workspace instances in a specific execution environment.
 // Implementations might use containers (podman, docker), processes, or other isolation mechanisms.
@@ -52,8 +56,8 @@ type CreateParams struct {
 	// SourcePath is the absolute path to the workspace source directory.
 	SourcePath string
 
-	// ConfigPath is the absolute path to the workspace configuration directory.
-	ConfigPath string
+	// WorkspaceConfig is the workspace configuration (optional, can be nil if no configuration exists).
+	WorkspaceConfig *workspace.WorkspaceConfiguration
 }
 
 // RuntimeInfo contains information about a runtime instance.

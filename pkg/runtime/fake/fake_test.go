@@ -43,9 +43,9 @@ func TestFakeRuntime_CreateStartStopRemove(t *testing.T) {
 	ctx := context.Background()
 
 	params := runtime.CreateParams{
-		Name:       "test-instance",
-		SourcePath: "/path/to/source",
-		ConfigPath: "/path/to/config",
+		Name:            "test-instance",
+		SourcePath:      "/path/to/source",
+		WorkspaceConfig: nil,
 	}
 
 	// Create instance
@@ -111,9 +111,9 @@ func TestFakeRuntime_InfoRetrievesCorrectState(t *testing.T) {
 	ctx := context.Background()
 
 	params := runtime.CreateParams{
-		Name:       "info-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "info-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info, err := rt.Create(ctx, params)
@@ -150,9 +150,6 @@ func TestFakeRuntime_InfoRetrievesCorrectState(t *testing.T) {
 	if info.Info["source"] != "/source" {
 		t.Errorf("Expected source '/source', got '%s'", info.Info["source"])
 	}
-	if info.Info["config"] != "/config" {
-		t.Errorf("Expected config '/config', got '%s'", info.Info["config"])
-	}
 	if info.Info["created_at"] == "" {
 		t.Error("Expected created_at timestamp")
 	}
@@ -168,9 +165,9 @@ func TestFakeRuntime_DuplicateCreate(t *testing.T) {
 	ctx := context.Background()
 
 	params := runtime.CreateParams{
-		Name:       "duplicate-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "duplicate-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	// Create first instance
@@ -235,22 +232,15 @@ func TestFakeRuntime_InvalidParams(t *testing.T) {
 		{
 			name: "missing name",
 			params: runtime.CreateParams{
-				SourcePath: "/source",
-				ConfigPath: "/config",
+				SourcePath:      "/source",
+				WorkspaceConfig: nil,
 			},
 		},
 		{
 			name: "missing source path",
 			params: runtime.CreateParams{
-				Name:       "test",
-				ConfigPath: "/config",
-			},
-		},
-		{
-			name: "missing config path",
-			params: runtime.CreateParams{
-				Name:       "test",
-				SourcePath: "/source",
+				Name:            "test",
+				WorkspaceConfig: nil,
 			},
 		},
 	}
@@ -272,9 +262,9 @@ func TestFakeRuntime_StateTransitionErrors(t *testing.T) {
 	ctx := context.Background()
 
 	params := runtime.CreateParams{
-		Name:       "state-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "state-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info, err := rt.Create(ctx, params)
@@ -318,9 +308,9 @@ func TestFakeRuntime_SequentialIDs(t *testing.T) {
 	var ids []string
 	for i := 1; i <= 3; i++ {
 		params := runtime.CreateParams{
-			Name:       fmt.Sprintf("instance-%d", i),
-			SourcePath: "/source",
-			ConfigPath: "/config",
+			Name:            fmt.Sprintf("instance-%d", i),
+			SourcePath:      "/source",
+			WorkspaceConfig: nil,
 		}
 
 		info, err := rt.Create(ctx, params)
@@ -357,9 +347,9 @@ func TestFakeRuntime_ParallelOperations(t *testing.T) {
 			defer wg.Done()
 
 			params := runtime.CreateParams{
-				Name:       fmt.Sprintf("parallel-%d", i),
-				SourcePath: "/source",
-				ConfigPath: "/config",
+				Name:            fmt.Sprintf("parallel-%d", i),
+				SourcePath:      "/source",
+				WorkspaceConfig: nil,
 			}
 
 			info, err := rt.Create(ctx, params)
@@ -399,9 +389,9 @@ func TestFakeRuntime_Persistence(t *testing.T) {
 
 	// Create an instance
 	params := runtime.CreateParams{
-		Name:       "persistent-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "persistent-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info1, err := rt1.Create(ctx, params)
@@ -466,9 +456,9 @@ func TestFakeRuntime_PersistenceStateChanges(t *testing.T) {
 
 	// Create an instance
 	params := runtime.CreateParams{
-		Name:       "state-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "state-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info, err := rt.Create(ctx, params)
@@ -551,9 +541,9 @@ func TestFakeRuntime_PersistenceRemoval(t *testing.T) {
 
 	// Create an instance
 	params := runtime.CreateParams{
-		Name:       "removal-test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "removal-test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info, err := rt.Create(ctx, params)
@@ -607,9 +597,9 @@ func TestFakeRuntime_PersistenceSequentialIDs(t *testing.T) {
 
 	// Create first instance
 	params := runtime.CreateParams{
-		Name:       "instance-1",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "instance-1",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	info1, err := rt1.Create(ctx, params)
@@ -664,9 +654,9 @@ func TestFakeRuntime_InitializeEmptyDirectory(t *testing.T) {
 	// Verify we can create instances
 	ctx := context.Background()
 	params := runtime.CreateParams{
-		Name:       "test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	_, err = rt.Create(ctx, params)
@@ -699,9 +689,9 @@ func TestFakeRuntime_WithoutInitialization(t *testing.T) {
 	rt := New()
 
 	params := runtime.CreateParams{
-		Name:       "test",
-		SourcePath: "/source",
-		ConfigPath: "/config",
+		Name:            "test",
+		SourcePath:      "/source",
+		WorkspaceConfig: nil,
 	}
 
 	// Should still work in memory-only mode
@@ -734,8 +724,7 @@ func TestFakeRuntime_LoadWithNilInfoMap(t *testing.T) {
       "name": "test-instance",
       "state": "created",
       "info": null,
-      "source": "/source",
-      "config": "/config"
+      "source": "/source"
     }
   }
 }`
