@@ -84,3 +84,11 @@ func completeRunningWorkspaceID(cmd *cobra.Command, args []string, toComplete st
 		return state == "running"
 	})
 }
+
+// newOutputFlagCompletion creates a completion function for the --output flag
+// with the given list of valid output formats
+func newOutputFlagCompletion(validFormats []string) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return validFormats, cobra.ShellCompDirectiveNoFileComp
+	}
+}

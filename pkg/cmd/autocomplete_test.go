@@ -342,3 +342,78 @@ func TestCompleteRunningWorkspaceID(t *testing.T) {
 		}
 	})
 }
+
+func TestNewOutputFlagCompletion(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns configured output formats", func(t *testing.T) {
+		t.Parallel()
+
+		// Create completion function with multiple formats
+		completionFunc := newOutputFlagCompletion([]string{"json", "yaml", "text"})
+
+		cmd := &cobra.Command{}
+		completions, directive := completionFunc(cmd, []string{}, "")
+
+		// Verify we got all formats
+		if len(completions) != 3 {
+			t.Errorf("Expected 3 completions, got %d", len(completions))
+		}
+
+		expectedFormats := map[string]bool{"json": true, "yaml": true, "text": true}
+		for _, completion := range completions {
+			if !expectedFormats[completion] {
+				t.Errorf("Unexpected completion: %s", completion)
+			}
+		}
+
+		// Verify directive
+		if directive != cobra.ShellCompDirectiveNoFileComp {
+			t.Errorf("Expected ShellCompDirectiveNoFileComp, got %v", directive)
+		}
+	})
+
+	t.Run("returns only json for current commands", func(t *testing.T) {
+		t.Parallel()
+
+		// Create completion function with only json (current state)
+		completionFunc := newOutputFlagCompletion([]string{"json"})
+
+		cmd := &cobra.Command{}
+		completions, directive := completionFunc(cmd, []string{}, "")
+
+		// Verify we got only json
+		if len(completions) != 1 {
+			t.Errorf("Expected 1 completion, got %d", len(completions))
+		}
+
+		if len(completions) > 0 && completions[0] != "json" {
+			t.Errorf("Expected 'json', got %s", completions[0])
+		}
+
+		// Verify directive
+		if directive != cobra.ShellCompDirectiveNoFileComp {
+			t.Errorf("Expected ShellCompDirectiveNoFileComp, got %v", directive)
+		}
+	})
+
+	t.Run("returns empty list when no formats configured", func(t *testing.T) {
+		t.Parallel()
+
+		// Create completion function with empty list
+		completionFunc := newOutputFlagCompletion([]string{})
+
+		cmd := &cobra.Command{}
+		completions, directive := completionFunc(cmd, []string{}, "")
+
+		// Verify we got no completions
+		if len(completions) != 0 {
+			t.Errorf("Expected 0 completions, got %d", len(completions))
+		}
+
+		// Verify directive
+		if directive != cobra.ShellCompDirectiveNoFileComp {
+			t.Errorf("Expected ShellCompDirectiveNoFileComp, got %v", directive)
+		}
+	})
+}

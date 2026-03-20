@@ -140,6 +140,7 @@ kortex-cli workspace start abc123 --output json`,
 	}
 
 	cmd.Flags().StringVarP(&c.output, "output", "o", "", "Output format (supported: json)")
+	cmd.RegisterFlagCompletionFunc("output", newOutputFlagCompletion([]string{"json"}))
 
 	return cmd
 }

@@ -254,6 +254,7 @@ kortex-cli init --runtime fake --verbose`,
 
 	// Add output flag
 	cmd.Flags().StringVarP(&c.output, "output", "o", "", "Output format (supported: json)")
+	cmd.RegisterFlagCompletionFunc("output", newOutputFlagCompletion([]string{"json"}))
 
 	return cmd
 }
