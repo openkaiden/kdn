@@ -28,6 +28,7 @@ import (
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/exec"
 	"github.com/kortex-hub/kortex-cli/pkg/steplogger"
+	"github.com/kortex-hub/kortex-cli/pkg/system"
 )
 
 func TestValidateDependencyPath(t *testing.T) {
@@ -949,4 +950,119 @@ func TestCreate_StepLogger_FailOnCreateContainer(t *testing.T) {
 	if fakeLogger.failCalls[0] == nil {
 		t.Error("Expected Fail() to be called with non-nil error")
 	}
+}
+
+func TestCreate_CleansUpInstanceDirectory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("removes instance directory after successful create", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		// Create a fake executor that simulates successful operations
+		fakeExec := &fakeExecutor{
+			runErr:    nil,
+			outputErr: nil,
+			output:    []byte("container123"),
+		}
+
+		p := newWithDeps(system.New(), fakeExec).(*podmanRuntime)
+
+		// Initialize the runtime with storage
+		if err := p.Initialize(storageDir); err != nil {
+			t.Fatalf("Initialize() failed: %v", err)
+		}
+
+		params := runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+		}
+
+		// Before Create, verify instances directory doesn't exist yet
+		instancesDir := filepath.Join(storageDir, "instances")
+
+		// Call Create
+		_, err := p.Create(context.Background(), params)
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		// After Create, verify the instance directory was cleaned up
+		instanceDir := filepath.Join(instancesDir, "test-workspace")
+		if _, err := os.Stat(instanceDir); !os.IsNotExist(err) {
+			t.Errorf("Expected instance directory to be removed, but it still exists: %s", instanceDir)
+
+			// List contents for debugging
+			if err == nil {
+				entries, _ := os.ReadDir(instanceDir)
+				t.Logf("Instance directory contents: %v", entries)
+			}
+		}
+	})
+
+	t.Run("removes instance directory even on build failure", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		// Create a fake executor that simulates build failure
+		fakeExec := &fakeExecutor{
+			runErr:    fmt.Errorf("image build failed"),
+			outputErr: nil,
+			output:    nil,
+		}
+
+		p := newWithDeps(system.New(), fakeExec).(*podmanRuntime)
+
+		// Initialize the runtime with storage
+		if err := p.Initialize(storageDir); err != nil {
+			t.Fatalf("Initialize() failed: %v", err)
+		}
+
+		params := runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+		}
+
+		instancesDir := filepath.Join(storageDir, "instances")
+
+		// Call Create (should fail on build)
+		_, err := p.Create(context.Background(), params)
+		if err == nil {
+			t.Fatal("Expected Create() to fail, but it succeeded")
+		}
+
+		// Even after failure, verify the instance directory was cleaned up
+		instanceDir := filepath.Join(instancesDir, "test-workspace")
+		if _, err := os.Stat(instanceDir); !os.IsNotExist(err) {
+			t.Errorf("Expected instance directory to be removed after failure, but it still exists: %s", instanceDir)
+
+			// List contents for debugging
+			if err == nil {
+				entries, _ := os.ReadDir(instanceDir)
+				t.Logf("Instance directory contents: %v", entries)
+			}
+		}
+	})
+}
+
+// fakeExecutor is a test double for the exec.Executor interface
+type fakeExecutor struct {
+	runErr    error
+	outputErr error
+	output    []byte
+}
+
+func (f *fakeExecutor) Run(ctx context.Context, args ...string) error {
+	return f.runErr
+}
+
+func (f *fakeExecutor) Output(ctx context.Context, args ...string) ([]byte, error) {
+	if f.outputErr != nil {
+		return nil, f.outputErr
+	}
+	return f.output, nil
 }

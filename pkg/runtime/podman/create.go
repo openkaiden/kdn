@@ -226,6 +226,9 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		logger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
+	// Clean up instance directory after use (whether success or error)
+	// The Containerfile and sudoers are only needed during image build
+	defer os.RemoveAll(instanceDir)
 
 	// Load configurations
 	imageConfig, err := p.config.LoadImage()
