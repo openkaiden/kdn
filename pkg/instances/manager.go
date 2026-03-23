@@ -368,8 +368,8 @@ func (m *manager) Get(id string) (Instance, error) {
 }
 
 // Delete unregisters an instance by ID.
-// Before removing from storage, it attempts to remove the runtime instance.
-// Runtime cleanup is best-effort: if the runtime is unavailable, deletion proceeds anyway.
+// Before removing from storage, it removes the runtime instance.
+// If runtime removal fails, the instance is NOT removed from storage and an error is returned.
 func (m *manager) Delete(ctx context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -396,13 +396,16 @@ func (m *manager) Delete(ctx context.Context, id string) error {
 		return ErrInstanceNotFound
 	}
 
-	// Runtime cleanup (best effort)
+	// Runtime cleanup
 	runtimeInfo := instanceToDelete.GetRuntimeData()
 	if runtimeInfo.Type != "" && runtimeInfo.InstanceID != "" {
 		rt, err := m.runtimeRegistry.Get(runtimeInfo.Type)
-		if err == nil {
-			// Runtime is available, try to clean up (ignore errors)
-			_ = rt.Remove(ctx, runtimeInfo.InstanceID)
+		if err != nil {
+			return fmt.Errorf("failed to get runtime: %w", err)
+		}
+		// Remove runtime instance (must succeed before removing from storage)
+		if err := rt.Remove(ctx, runtimeInfo.InstanceID); err != nil {
+			return fmt.Errorf("failed to remove runtime instance: %w", err)
 		}
 	}
 

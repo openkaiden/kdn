@@ -662,6 +662,44 @@ func TestManager_Delete(t *testing.T) {
 			t.Errorf("Get() from new manager error = %v, want %v", err, ErrInstanceNotFound)
 		}
 	})
+
+	t.Run("returns error when runtime Remove fails", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir))
+
+		instanceTmpDir := t.TempDir()
+		sourceDir := filepath.Join(instanceTmpDir, "source")
+		configDir := filepath.Join(instanceTmpDir, "config")
+		inst := newFakeInstance(newFakeInstanceParams{
+			SourceDir:  sourceDir,
+			ConfigDir:  configDir,
+			Accessible: true,
+		})
+		added, _ := manager.Add(ctx, AddOptions{Instance: inst, RuntimeType: "fake"})
+
+		generatedID := added.GetID()
+
+		// Start the instance (fake runtime doesn't allow removing running instances)
+		err := manager.Start(ctx, generatedID)
+		if err != nil {
+			t.Fatalf("Start() unexpected error = %v", err)
+		}
+
+		// Try to delete while running - should fail
+		err = manager.Delete(ctx, generatedID)
+		if err == nil {
+			t.Fatal("Delete() expected error when runtime Remove fails, got nil")
+		}
+
+		// Verify instance was NOT deleted from manager storage
+		_, err = manager.Get(generatedID)
+		if err != nil {
+			t.Errorf("Get() after failed Delete() unexpected error = %v, instance should still exist", err)
+		}
+	})
 }
 
 func TestManager_Start(t *testing.T) {

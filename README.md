@@ -321,6 +321,90 @@ kortex-cli list
 kortex-cli list --storage /tmp/kortex-storage
 ```
 
+## Runtimes
+
+### Podman Runtime
+
+The Podman runtime provides a container-based development environment for workspaces. It creates an isolated environment with all necessary tools pre-installed and configured.
+
+#### Container Image
+
+**Base Image:** `registry.fedoraproject.org/fedora:latest`
+
+The Podman runtime builds a custom container image based on Fedora Linux, providing a stable and up-to-date foundation for development work.
+
+#### Installed Packages
+
+The runtime includes a comprehensive development toolchain:
+
+- **Core Utilities:**
+  - `which` - Command location utility
+  - `procps-ng` - Process management utilities
+  - `wget2` - Advanced file downloader
+
+- **Development Tools:**
+  - `@development-tools` - Complete development toolchain (gcc, make, etc.)
+  - `jq` - JSON processor
+  - `gh` - GitHub CLI
+
+- **Language Support:**
+  - `golang` - Go programming language
+  - `golangci-lint` - Go linter
+  - `python3` - Python 3 interpreter
+  - `python3-pip` - Python package manager
+
+#### User and Permissions
+
+The container runs as a non-root user named `claude` with the following configuration:
+
+- **User:** `claude`
+- **UID/GID:** Matches the host user's UID and GID for seamless file permissions
+- **Home Directory:** `/home/claude`
+
+**Sudo Permissions:**
+
+The `claude` user has limited sudo access with no password required (`NOPASSWD`) for:
+
+- **Package Management:**
+  - `/usr/bin/dnf` - Install, update, and manage packages
+
+- **Process Management:**
+  - `/bin/nice` - Run programs with modified scheduling priority
+  - `/bin/kill`, `/usr/bin/kill` - Send signals to processes
+  - `/usr/bin/killall` - Kill processes by name
+
+All other sudo commands are explicitly denied for security.
+
+#### AI Agent
+
+**Claude Code** is installed as the default AI agent using the official installation script from `claude.ai/install.sh`. This provides:
+
+- Full Claude Code CLI capabilities
+- Integrated development assistance
+- Access to Claude's latest features
+
+The agent runs within the container environment and has access to the mounted workspace sources and dependencies.
+
+#### Working Directory
+
+The container's working directory is set to `/workspace/sources`, which is where your project source code is mounted. This ensures that the agent and all tools operate within your project context.
+
+#### Example Usage
+
+```bash
+# Register a workspace with the Podman runtime
+kortex-cli init /path/to/project --runtime podman
+
+# Start the workspace (builds image and starts container)
+kortex-cli start <workspace-id>
+```
+
+The first time you start a workspace, the Podman runtime will:
+1. Create a Containerfile with the configuration above
+2. Build a custom image (tagged as `kortex-cli-<workspace-name>`)
+3. Create a container with your source code mounted
+4. Start the container and make it ready for use
+
 ## Workspace Configuration
 
 Each workspace can optionally include a configuration file that customizes the environment and mount behavior for that specific workspace. The configuration is stored in a `workspace.json` file within the workspace's configuration directory (typically `.kortex` in the sources directory).
