@@ -25,6 +25,7 @@ import (
 
 	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/exec"
 	"github.com/kortex-hub/kortex-cli/pkg/steplogger"
 )
@@ -243,13 +244,27 @@ func TestCreateInstanceDirectory(t *testing.T) {
 func TestCreateContainerfile(t *testing.T) {
 	t.Parallel()
 
-	t.Run("creates Containerfile with correct content", func(t *testing.T) {
+	t.Run("creates Containerfile with default configs", func(t *testing.T) {
 		t.Parallel()
 
 		instanceDir := t.TempDir()
 		p := &podmanRuntime{}
 
-		err := p.createContainerfile(instanceDir)
+		// Create default configs
+		imageConfig := &config.ImageConfig{
+			Version:     "latest",
+			Packages:    []string{"which", "procps-ng"},
+			Sudo:        []string{"/usr/bin/dnf"},
+			RunCommands: []string{},
+		}
+
+		agentConfig := &config.AgentConfig{
+			Packages:        []string{},
+			RunCommands:     []string{"curl -fsSL https://claude.ai/install.sh | bash"},
+			TerminalCommand: []string{"claude"},
+		}
+
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
@@ -265,6 +280,82 @@ func TestCreateContainerfile(t *testing.T) {
 		lines := strings.Split(string(content), "\n")
 		if len(lines) == 0 || lines[0]+"\n" != expectedFirstLine {
 			t.Errorf("Expected Containerfile to start with:\n%s\nGot:\n%s", expectedFirstLine, lines[0])
+		}
+
+		// Verify sudoers file exists
+		sudoersPath := filepath.Join(instanceDir, "sudoers")
+		sudoersContent, err := os.ReadFile(sudoersPath)
+		if err != nil {
+			t.Fatalf("Failed to read sudoers: %v", err)
+		}
+
+		// Verify sudoers has ALLOWED alias
+		if !strings.Contains(string(sudoersContent), "Cmnd_Alias ALLOWED") {
+			t.Error("Expected sudoers to contain 'Cmnd_Alias ALLOWED'")
+		}
+	})
+
+	t.Run("creates Containerfile with custom configs", func(t *testing.T) {
+		t.Parallel()
+
+		instanceDir := t.TempDir()
+		p := &podmanRuntime{}
+
+		// Create custom configs
+		imageConfig := &config.ImageConfig{
+			Version:     "40",
+			Packages:    []string{"custom-package"},
+			Sudo:        []string{"/usr/bin/custom"},
+			RunCommands: []string{"echo 'custom setup'"},
+		}
+
+		agentConfig := &config.AgentConfig{
+			Packages:        []string{"agent-package"},
+			RunCommands:     []string{"echo 'agent setup'"},
+			TerminalCommand: []string{"custom-agent"},
+		}
+
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig)
+		if err != nil {
+			t.Fatalf("createContainerfile() failed: %v", err)
+		}
+
+		// Verify Containerfile contains custom version
+		containerfilePath := filepath.Join(instanceDir, "Containerfile")
+		content, err := os.ReadFile(containerfilePath)
+		if err != nil {
+			t.Fatalf("Failed to read Containerfile: %v", err)
+		}
+
+		if !strings.Contains(string(content), "FROM registry.fedoraproject.org/fedora:40") {
+			t.Error("Expected Containerfile to use custom Fedora version 40")
+		}
+
+		// Verify custom packages are installed
+		if !strings.Contains(string(content), "custom-package") {
+			t.Error("Expected Containerfile to contain custom package")
+		}
+		if !strings.Contains(string(content), "agent-package") {
+			t.Error("Expected Containerfile to contain agent package")
+		}
+
+		// Verify custom RUN commands
+		if !strings.Contains(string(content), "RUN echo 'custom setup'") {
+			t.Error("Expected Containerfile to contain custom RUN command")
+		}
+		if !strings.Contains(string(content), "RUN echo 'agent setup'") {
+			t.Error("Expected Containerfile to contain agent RUN command")
+		}
+
+		// Verify sudoers contains custom binary
+		sudoersPath := filepath.Join(instanceDir, "sudoers")
+		sudoersContent, err := os.ReadFile(sudoersPath)
+		if err != nil {
+			t.Fatalf("Failed to read sudoers: %v", err)
+		}
+
+		if !strings.Contains(string(sudoersContent), "/usr/bin/custom") {
+			t.Error("Expected sudoers to contain custom binary")
 		}
 	})
 }

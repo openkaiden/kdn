@@ -426,6 +426,144 @@ kortex-cli start <workspace-id>
 
 **Note:** When using `--output json`, all progress spinners are hidden to avoid polluting the JSON output.
 
+#### Customizing Podman Runtime Configuration
+
+The Podman runtime is fully configurable through JSON files. When you first use the Podman runtime, default configuration files are automatically created in your storage directory.
+
+**Configuration Location:**
+
+```text
+$HOME/.kortex-cli/runtimes/podman/config/
+├── image.json    # Base image configuration
+└── claude.json   # Agent-specific configuration
+```
+
+Or if using a custom storage directory:
+
+```text
+<storage-dir>/runtimes/podman/config/
+```
+
+##### Base Image Configuration (`image.json`)
+
+Controls the container's base image, packages, and sudo permissions.
+
+**Structure:**
+
+```json
+{
+  "version": "latest",
+  "packages": [
+    "which",
+    "procps-ng",
+    "wget2",
+    "@development-tools",
+    "jq",
+    "gh",
+    "golang",
+    "golangci-lint",
+    "python3",
+    "python3-pip"
+  ],
+  "sudo": [
+    "/usr/bin/dnf",
+    "/bin/nice",
+    "/bin/kill",
+    "/usr/bin/kill",
+    "/usr/bin/killall"
+  ],
+  "run_commands": []
+}
+```
+
+**Fields:**
+
+- `version` (required) - Fedora version tag
+  - Examples: `"latest"`, `"40"`, `"41"`
+  - The base registry `registry.fedoraproject.org/fedora` is hardcoded and cannot be changed
+
+- `packages` (optional) - DNF packages to install
+  - Array of package names
+  - Can include package groups with `@` prefix (e.g., `"@development-tools"`)
+  - Empty array is valid if no packages needed
+
+- `sudo` (optional) - Binaries the `claude` user can run with sudo
+  - Must be absolute paths (e.g., `"/usr/bin/dnf"`)
+  - Creates a single `ALLOWED` command alias in sudoers
+  - Empty array disables all sudo access
+
+- `run_commands` (optional) - Custom shell commands to run during image build
+  - Executed as RUN instructions in the Containerfile
+  - Run before agent-specific commands
+  - Useful for additional setup steps
+
+##### Agent Configuration (`claude.json`)
+
+Controls agent-specific packages and installation steps.
+
+**Structure:**
+
+```json
+{
+  "packages": [],
+  "run_commands": [
+    "curl -fsSL --proto-redir '-all,https' --tlsv1.3 https://claude.ai/install.sh | bash",
+    "mkdir /home/claude/.config"
+  ],
+  "terminal_command": [
+    "claude"
+  ]
+}
+```
+
+**Fields:**
+
+- `packages` (optional) - Additional packages specific to this agent
+  - Merged with packages from `image.json`
+  - Useful for agent-specific dependencies
+
+- `run_commands` (optional) - Commands to set up the agent
+  - Executed after image configuration commands
+  - Typically used for agent installation
+
+- `terminal_command` (required) - Command to launch the agent
+  - Must have at least one element
+  - Can include flags: `["claude", "--verbose"]`
+
+##### Applying Configuration Changes
+
+Configuration changes take effect when you **register a new workspace with `init`**. The Containerfile is generated and the image is built during workspace registration, using the configuration files that exist at that time.
+
+**To apply new configuration:**
+
+1. Edit the configuration files:
+   ```bash
+   # Edit base image configuration
+   nano ~/.kortex-cli/runtimes/podman/config/image.json
+
+   # Edit agent configuration
+   nano ~/.kortex-cli/runtimes/podman/config/claude.json
+   ```
+
+2. Register a new workspace (this creates the Containerfile and builds the image):
+   ```bash
+   kortex-cli init /path/to/project --runtime podman
+   ```
+
+3. Start the workspace:
+   ```bash
+   kortex-cli start <workspace-id>
+   ```
+
+**Notes:**
+
+- The first `init` command using Podman creates default config files automatically
+- Config files are never overwritten once created - your customizations are preserved
+- The Containerfile and image are built during `init`, not `start`
+- Each workspace's image is built once using the configuration at registration time
+- To rebuild a workspace with new config, remove and re-register it
+- Validation errors in config files will cause workspace registration to fail with a descriptive message
+
 ## Workspace Configuration
 
 Each workspace can optionally include a configuration file that customizes the environment and mount behavior for that specific workspace. The configuration is stored in a `workspace.json` file within the workspace's configuration directory (typically `.kortex` in the sources directory).

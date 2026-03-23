@@ -17,8 +17,10 @@ package podman
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/exec"
 	"github.com/kortex-hub/kortex-cli/pkg/system"
 )
@@ -27,7 +29,8 @@ import (
 type podmanRuntime struct {
 	system     system.System
 	executor   exec.Executor
-	storageDir string // Directory for storing runtime-specific data
+	storageDir string        // Directory for storing runtime-specific data
+	config     config.Config // Configuration manager for runtime settings
 }
 
 // Ensure podmanRuntime implements runtime.Runtime at compile time.
@@ -62,6 +65,22 @@ func (p *podmanRuntime) Initialize(storageDir string) error {
 		return fmt.Errorf("storage directory cannot be empty")
 	}
 	p.storageDir = storageDir
+
+	// Create config directory
+	configDir := filepath.Join(storageDir, "config")
+
+	// Create config instance
+	cfg, err := config.NewConfig(configDir)
+	if err != nil {
+		return fmt.Errorf("failed to create config: %w", err)
+	}
+	p.config = cfg
+
+	// Generate default configurations if they don't exist
+	if err := p.config.GenerateDefaults(); err != nil {
+		return fmt.Errorf("failed to generate default configs: %w", err)
+	}
+
 	return nil
 }
 

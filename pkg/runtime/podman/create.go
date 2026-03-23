@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
 	"github.com/kortex-hub/kortex-cli/pkg/steplogger"
 )
 
@@ -87,37 +88,22 @@ func (p *podmanRuntime) createInstanceDirectory(name string) (string, error) {
 	return instanceDir, nil
 }
 
-// createContainerfile creates a simple Containerfile in the instance directory.
-func (p *podmanRuntime) createContainerfile(instanceDir string) error {
+// createContainerfile creates a Containerfile in the instance directory using the provided configs.
+func (p *podmanRuntime) createContainerfile(instanceDir string, imageConfig *config.ImageConfig, agentConfig *config.AgentConfig) error {
+	// Generate sudoers content
+	sudoersContent := generateSudoers(imageConfig.Sudo)
 	sudoersPath := filepath.Join(instanceDir, "sudoers")
-	sudoersContent := `Cmnd_Alias SOFTWARE = /usr/bin/dnf
-Cmnd_Alias PROCESSES = /bin/nice, /bin/kill, /usr/bin/kill, /usr/bin/killall
-
-claude ALL = !ALL, NOPASSWD: SOFTWARE, PROCESSES
-`
 	if err := os.WriteFile(sudoersPath, []byte(sudoersContent), 0644); err != nil {
 		return fmt.Errorf("failed to write sudoers: %w", err)
 	}
+
+	// Generate Containerfile content
+	containerfileContent := generateContainerfile(imageConfig, agentConfig)
 	containerfilePath := filepath.Join(instanceDir, "Containerfile")
-	containerfileContent := `FROM registry.fedoraproject.org/fedora:latest
-
-RUN dnf install -y which procps-ng wget2 @development-tools jq gh golang golangci-lint python3 python3-pip
-
-ARG UID=1000
-ARG GID=1000
-RUN GROUPNAME=$(grep $GID /etc/group | cut -d: -f1); [ -n "$GROUPNAME" ] && groupdel $GROUPNAME || true
-RUN groupadd -g "${GID}" claude && useradd -u "${UID}" -g "${GID}" -m claude
-COPY sudoers /etc/sudoers.d/claude
-USER claude:claude
-
-ENV PATH=/home/claude/.local/bin:/usr/local/bin:/usr/bin
-RUN curl -fsSL --proto-redir '-all,https' --tlsv1.3 https://claude.ai/install.sh | bash
-
-RUN mkdir /home/claude/.config
-`
 	if err := os.WriteFile(containerfilePath, []byte(containerfileContent), 0644); err != nil {
 		return fmt.Errorf("failed to write Containerfile: %w", err)
 	}
+
 	return nil
 }
 
@@ -241,9 +227,22 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		return runtime.RuntimeInfo{}, err
 	}
 
+	// Load configurations
+	imageConfig, err := p.config.LoadImage()
+	if err != nil {
+		return runtime.RuntimeInfo{}, fmt.Errorf("failed to load image config: %w", err)
+	}
+
+	// For now, hardcode the agent name as "claude"
+	// In a future update, the agent name will be passed from the init command
+	agentConfig, err := p.config.LoadAgent("claude")
+	if err != nil {
+		return runtime.RuntimeInfo{}, fmt.Errorf("failed to load agent config: %w", err)
+	}
+
 	// Create Containerfile
 	logger.Start("Generating Containerfile", "Containerfile generated")
-	if err := p.createContainerfile(instanceDir); err != nil {
+	if err := p.createContainerfile(instanceDir, imageConfig, agentConfig); err != nil {
 		logger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
