@@ -135,7 +135,12 @@ func (c *config) GenerateDefaults() error {
 
 	// Generate default image config if it doesn't exist
 	imageConfigPath := filepath.Join(c.path, ImageConfigFileName)
-	if _, err := os.Stat(imageConfigPath); os.IsNotExist(err) {
+	fileInfo, err := os.Stat(imageConfigPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to stat %s: %w", imageConfigPath, err)
+		}
+		// File doesn't exist, generate it
 		imageConfig := defaultImageConfig()
 		data, err := json.MarshalIndent(imageConfig, "", "  ")
 		if err != nil {
@@ -144,11 +149,21 @@ func (c *config) GenerateDefaults() error {
 		if err := os.WriteFile(imageConfigPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to write image config: %w", err)
 		}
+	} else {
+		// File exists, check if it's a directory
+		if fileInfo.IsDir() {
+			return fmt.Errorf("expected file but found directory: %s", imageConfigPath)
+		}
 	}
 
 	// Generate default Claude config if it doesn't exist
 	claudeConfigPath := filepath.Join(c.path, ClaudeConfigFileName)
-	if _, err := os.Stat(claudeConfigPath); os.IsNotExist(err) {
+	fileInfo, err = os.Stat(claudeConfigPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to stat %s: %w", claudeConfigPath, err)
+		}
+		// File doesn't exist, generate it
 		claudeConfig := defaultClaudeConfig()
 		data, err := json.MarshalIndent(claudeConfig, "", "  ")
 		if err != nil {
@@ -156,6 +171,11 @@ func (c *config) GenerateDefaults() error {
 		}
 		if err := os.WriteFile(claudeConfigPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to write claude config: %w", err)
+		}
+	} else {
+		// File exists, check if it's a directory
+		if fileInfo.IsDir() {
+			return fmt.Errorf("expected file but found directory: %s", claudeConfigPath)
 		}
 	}
 

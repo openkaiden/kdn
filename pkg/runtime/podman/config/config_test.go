@@ -19,6 +19,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -209,6 +210,66 @@ func TestGenerateDefaults(t *testing.T) {
 
 		if loadedConfig.Version != "40" {
 			t.Errorf("Expected version 40, got: %s (config was overwritten)", loadedConfig.Version)
+		}
+	})
+
+	t.Run("returns error when image config path is a directory", func(t *testing.T) {
+		t.Parallel()
+
+		configDir := t.TempDir()
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		// Create image.json as a directory instead of a file
+		imageConfigPath := filepath.Join(configDir, ImageConfigFileName)
+		if err := os.MkdirAll(imageConfigPath, 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+
+		// Call GenerateDefaults - should fail
+		err = cfg.GenerateDefaults()
+		if err == nil {
+			t.Fatal("Expected error when image config path is a directory")
+		}
+
+		if !strings.Contains(err.Error(), "expected file but found directory") {
+			t.Errorf("Expected 'expected file but found directory' error, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), imageConfigPath) {
+			t.Errorf("Expected error to contain path %s, got: %v", imageConfigPath, err)
+		}
+	})
+
+	t.Run("returns error when claude config path is a directory", func(t *testing.T) {
+		t.Parallel()
+
+		configDir := t.TempDir()
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		// Create claude.json as a directory instead of a file
+		claudeConfigPath := filepath.Join(configDir, ClaudeConfigFileName)
+		if err := os.MkdirAll(claudeConfigPath, 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+
+		// Call GenerateDefaults - should fail
+		err = cfg.GenerateDefaults()
+		if err == nil {
+			t.Fatal("Expected error when claude config path is a directory")
+		}
+
+		if !strings.Contains(err.Error(), "expected file but found directory") {
+			t.Errorf("Expected 'expected file but found directory' error, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), claudeConfigPath) {
+			t.Errorf("Expected error to contain path %s, got: %v", claudeConfigPath, err)
 		}
 	})
 }
