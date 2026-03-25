@@ -39,6 +39,7 @@ type initCmd struct {
 	name               string
 	runtime            string
 	project            string
+	agent              string
 	absSourcesDir      string
 	absConfigDir       string
 	manager            instances.Manager
@@ -163,12 +164,14 @@ func (i *initCmd) run(cmd *cobra.Command, args []string) error {
 		return outputErrorIfJSON(cmd, i.output, err)
 	}
 
-	// Add the instance to the manager with runtime and workspace configuration
+	// Add the instance to the manager
+	// Manager handles config loading and merging internally
 	addedInstance, err := i.manager.Add(cmd.Context(), instances.AddOptions{
 		Instance:        instance,
 		RuntimeType:     i.runtime,
 		WorkspaceConfig: i.workspaceConfig,
 		Project:         i.project,
+		Agent:           i.agent,
 	})
 	if err != nil {
 		return outputErrorIfJSON(cmd, i.output, err)
@@ -240,6 +243,9 @@ kortex-cli init --runtime fake --name my-project
 # Register with custom project identifier
 kortex-cli init --runtime fake --project my-custom-project
 
+# Register with agent-specific configuration
+kortex-cli init --runtime fake --agent claude
+
 # Show detailed output
 kortex-cli init --runtime fake --verbose`,
 		Args:    cobra.MaximumNArgs(1),
@@ -259,6 +265,9 @@ kortex-cli init --runtime fake --verbose`,
 
 	// Add project flag
 	cmd.Flags().StringVarP(&c.project, "project", "p", "", "Custom project identifier (default: auto-detected from git repository or source directory)")
+
+	// Add agent flag
+	cmd.Flags().StringVarP(&c.agent, "agent", "a", "", "Agent name for loading agent-specific configuration (optional)")
 
 	// Add verbose flag
 	cmd.Flags().BoolVarP(&c.verbose, "verbose", "v", false, "Show detailed output")

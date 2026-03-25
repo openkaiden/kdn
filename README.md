@@ -610,6 +610,258 @@ dependency mount "/absolute/path" (index 0) must be a relative path
 - All validation rules are enforced to prevent runtime errors
 - The configuration model is imported from the `github.com/kortex-hub/kortex-cli-api/workspace-configuration/go` package for consistency across tools
 
+## Multi-Level Configuration
+
+kortex-cli supports configuration at multiple levels, allowing you to customize workspace settings for different contexts. Configurations are automatically merged with proper precedence, making it easy to share common settings while still allowing project and agent-specific customization.
+
+### Configuration Levels
+
+**1. Workspace Configuration** (`.kortex/workspace.json`)
+- Stored in your project repository
+- Shared with all developers
+- Used by all agents
+- Committed to version control
+
+**2. Global Project Configuration** (`~/.kortex-cli/config/projects.json` with `""` key)
+- User-specific settings applied to **all projects**
+- Stored on your local machine (not committed to git)
+- Perfect for common settings like `.gitconfig`, SSH keys, or global environment variables
+- Never shared with other developers
+
+**3. Project-Specific Configuration** (`~/.kortex-cli/config/projects.json`)
+- User-specific settings for a **specific project**
+- Stored on your local machine (not committed to git)
+- Overrides global settings for this project
+- Identified by project ID (git repository URL or directory path)
+
+**4. Agent-Specific Configuration** (`~/.kortex-cli/config/agents.json`)
+- User-specific settings for a **specific agent** (Claude, Goose, etc.)
+- Stored on your local machine (not committed to git)
+- Overrides all other configurations
+- Perfect for agent-specific environment variables or tools
+
+### Configuration Precedence
+
+When registering a workspace, configurations are merged in this order (later configs override earlier ones):
+
+1. **Workspace** (`.kortex/workspace.json`) - Base configuration from repository
+2. **Global** (projects.json `""` key) - Your global settings for all projects
+3. **Project** (projects.json specific project) - Your settings for this project
+4. **Agent** (agents.json specific agent) - Your settings for this agent
+
+**Example:** If `DEBUG` is defined in workspace config as `false`, in project config as `true`, and in agent config as `verbose`, the final value will be `verbose` (from agent config).
+
+### Storage Location
+
+User-specific configurations are stored in the kortex-cli storage directory:
+
+- **Default location**: `~/.kortex-cli/config/`
+- **Custom location**: Set via `--storage` flag or `KORTEX_CLI_STORAGE` environment variable
+
+The storage directory contains:
+- `config/agents.json` - Agent-specific configurations
+- `config/projects.json` - Project-specific and global configurations
+
+### Agent Configuration File
+
+**Location**: `~/.kortex-cli/config/agents.json`
+
+**Format**:
+```json
+{
+  "claude": {
+    "environment": [
+      {
+        "name": "DEBUG",
+        "value": "true"
+      }
+    ],
+    "mounts": {
+      "configs": [".claude-config"]
+    }
+  },
+  "goose": {
+    "environment": [
+      {
+        "name": "GOOSE_MODE",
+        "value": "verbose"
+      }
+    ]
+  }
+}
+```
+
+Each key is an agent name (e.g., `claude`, `goose`). The value uses the same structure as `workspace.json`.
+
+### Project Configuration File
+
+**Location**: `~/.kortex-cli/config/projects.json`
+
+**Format**:
+```json
+{
+  "": {
+    "mounts": {
+      "configs": [".gitconfig", ".ssh"]
+    }
+  },
+  "github.com/kortex-hub/kortex-cli": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ],
+    "mounts": {
+      "dependencies": ["../kortex-common"]
+    }
+  },
+  "/home/user/my/project": {
+    "environment": [
+      {
+        "name": "LOCAL_DEV",
+        "value": "true"
+      }
+    ]
+  }
+}
+```
+
+**Special Keys:**
+- **Empty string `""`** - Global configuration applied to **all projects**
+- **Git repository URL** - Configuration for all workspaces in that repository (e.g., `github.com/user/repo`)
+- **Directory path** - Configuration for a specific directory (takes precedence over repository URL)
+
+### Use Cases
+
+**Global Settings for All Projects:**
+```json
+{
+  "": {
+    "mounts": {
+      "configs": [".gitconfig", ".ssh", ".gnupg"]
+    }
+  }
+}
+```
+This mounts your git config and SSH keys in **every workspace** you create.
+
+**Project-Specific API Keys:**
+```json
+{
+  "github.com/company/project": {
+    "environment": [
+      {
+        "name": "API_KEY",
+        "secret": "project-api-key"
+      }
+    ]
+  }
+}
+```
+This adds an API key only for workspaces in the company project.
+
+**Agent-Specific Debug Mode:**
+```json
+{
+  "claude": {
+    "environment": [
+      {
+        "name": "DEBUG",
+        "value": "true"
+      }
+    ]
+  }
+}
+```
+This enables debug mode only when using the Claude agent.
+
+### Using Multi-Level Configuration
+
+**Register workspace with agent-specific config:**
+```bash
+kortex-cli init --runtime fake --agent claude
+```
+
+**Register workspace with custom project:**
+```bash
+kortex-cli init --runtime fake --project my-custom-project --agent goose
+```
+
+**Register without agent (uses workspace + project configs only):**
+```bash
+kortex-cli init --runtime fake
+```
+
+### Merging Behavior
+
+**Environment Variables:**
+- Variables are merged by name
+- Later configurations override earlier ones
+- Example: If workspace sets `DEBUG=false` and agent sets `DEBUG=true`, the final value is `DEBUG=true`
+
+**Mount Paths:**
+- Paths are deduplicated (duplicates removed)
+- Order is preserved (first occurrence wins)
+- Example: If workspace has `[".gitconfig", ".ssh"]` and global has `[".ssh", ".kube"]`, the result is `[".gitconfig", ".ssh", ".kube"]`
+
+### Configuration Files Don't Exist?
+
+All multi-level configurations are **optional**:
+- If `agents.json` doesn't exist, agent-specific configuration is skipped
+- If `projects.json` doesn't exist, project and global configurations are skipped
+- If `workspace.json` doesn't exist, only user-specific configurations are used
+
+The system works without any configuration files and merges only the ones that exist.
+
+### Example: Complete Multi-Level Setup
+
+**Workspace config** (`.kortex/workspace.json` - committed to git):
+```json
+{
+  "environment": [
+    {"name": "NODE_ENV", "value": "development"}
+  ]
+}
+```
+
+**Global config** (`~/.kortex-cli/config/projects.json` - your machine only):
+```json
+{
+  "": {
+    "mounts": {
+      "configs": [".gitconfig", ".ssh"]
+    }
+  }
+}
+```
+
+**Project config** (`~/.kortex-cli/config/projects.json` - your machine only):
+```json
+{
+  "github.com/kortex-hub/kortex-cli": {
+    "environment": [
+      {"name": "DEBUG", "value": "true"}
+    ]
+  }
+}
+```
+
+**Agent config** (`~/.kortex-cli/config/agents.json` - your machine only):
+```json
+{
+  "claude": {
+    "environment": [
+      {"name": "CLAUDE_VERBOSE", "value": "true"}
+    ]
+  }
+}
+```
+
+**Result when running** `kortex-cli init --runtime fake --agent claude`:
+- Environment: `NODE_ENV=development`, `DEBUG=true`, `CLAUDE_VERBOSE=true`
+- Mounts: `.gitconfig`, `.ssh`
+
 ## Commands
 
 ### `init` - Register a New Workspace

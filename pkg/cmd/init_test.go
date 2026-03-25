@@ -1573,6 +1573,299 @@ func TestInitCmd_E2E(t *testing.T) {
 	})
 }
 
+func TestInitCmd_MultiLevelConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("registers workspace with agent config", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcesDir := t.TempDir()
+
+		// Create agent config file
+		configDir := filepath.Join(storageDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		agentsJSON := `{
+  "claude": {
+    "environment": [
+      {
+        "name": "AGENT_VAR",
+        "value": "claude-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "agents.json"), []byte(agentsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write agents.json: %v", err)
+		}
+
+		rootCmd := NewRootCmd()
+		rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--agent", "claude", "--storage", storageDir})
+
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		// Verify instance was registered
+		manager, err := instances.NewManager(storageDir)
+		if err != nil {
+			t.Fatalf("Failed to create manager: %v", err)
+		}
+
+		instancesList, err := manager.List()
+		if err != nil {
+			t.Fatalf("Failed to list instances: %v", err)
+		}
+
+		if len(instancesList) != 1 {
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
+		}
+	})
+
+	t.Run("registers workspace with project config", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcesDir := t.TempDir()
+
+		// Create project config file
+		configDir := filepath.Join(storageDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		projectsJSON := `{
+  "test-project": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		rootCmd := NewRootCmd()
+		rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--project", "test-project", "--storage", storageDir})
+
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		// Verify instance was registered
+		manager, err := instances.NewManager(storageDir)
+		if err != nil {
+			t.Fatalf("Failed to create manager: %v", err)
+		}
+
+		instancesList, err := manager.List()
+		if err != nil {
+			t.Fatalf("Failed to list instances: %v", err)
+		}
+
+		if len(instancesList) != 1 {
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
+		}
+
+		// Verify custom project identifier was used
+		if instancesList[0].GetProject() != "test-project" {
+			t.Errorf("Expected project 'test-project', got '%s'", instancesList[0].GetProject())
+		}
+	})
+
+	t.Run("registers workspace with global project config", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcesDir := t.TempDir()
+
+		// Create global project config (empty string key)
+		configDir := filepath.Join(storageDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		projectsJSON := `{
+  "": {
+    "mounts": {
+      "configs": [".gitconfig"]
+    }
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		rootCmd := NewRootCmd()
+		rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--storage", storageDir})
+
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		// Verify instance was registered
+		manager, err := instances.NewManager(storageDir)
+		if err != nil {
+			t.Fatalf("Failed to create manager: %v", err)
+		}
+
+		instancesList, err := manager.List()
+		if err != nil {
+			t.Fatalf("Failed to list instances: %v", err)
+		}
+
+		if len(instancesList) != 1 {
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
+		}
+	})
+
+	t.Run("registers workspace with all config levels", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcesDir := t.TempDir()
+
+		// Create workspace config
+		workspaceConfigDir := filepath.Join(sourcesDir, ".kortex")
+		if err := os.MkdirAll(workspaceConfigDir, 0755); err != nil {
+			t.Fatalf("Failed to create workspace config dir: %v", err)
+		}
+
+		workspaceJSON := `{
+  "environment": [
+    {
+      "name": "WORKSPACE_VAR",
+      "value": "workspace-value"
+    },
+    {
+      "name": "OVERRIDE_VAR",
+      "value": "from-workspace"
+    }
+  ]
+}`
+		if err := os.WriteFile(filepath.Join(workspaceConfigDir, "workspace.json"), []byte(workspaceJSON), 0644); err != nil {
+			t.Fatalf("Failed to write workspace.json: %v", err)
+		}
+
+		// Create project config (global + specific)
+		configDir := filepath.Join(storageDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		projectsJSON := `{
+  "": {
+    "environment": [
+      {
+        "name": "GLOBAL_VAR",
+        "value": "global-value"
+      }
+    ]
+  },
+  "test-project": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      },
+      {
+        "name": "OVERRIDE_VAR",
+        "value": "from-project"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		// Create agent config
+		agentsJSON := `{
+  "claude": {
+    "environment": [
+      {
+        "name": "AGENT_VAR",
+        "value": "agent-value"
+      },
+      {
+        "name": "OVERRIDE_VAR",
+        "value": "from-agent"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "agents.json"), []byte(agentsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write agents.json: %v", err)
+		}
+
+		rootCmd := NewRootCmd()
+		rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--project", "test-project", "--agent", "claude", "--storage", storageDir})
+
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		// Verify instance was registered
+		manager, err := instances.NewManager(storageDir)
+		if err != nil {
+			t.Fatalf("Failed to create manager: %v", err)
+		}
+
+		instancesList, err := manager.List()
+		if err != nil {
+			t.Fatalf("Failed to list instances: %v", err)
+		}
+
+		if len(instancesList) != 1 {
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
+		}
+
+		// Config merging is tested at the Manager level
+		// This E2E test just verifies the integration works
+	})
+
+	t.Run("works without optional configs", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcesDir := t.TempDir()
+
+		// No project or agent configs - should still work
+		rootCmd := NewRootCmd()
+		rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--storage", storageDir})
+
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Fatalf("Execute() failed: %v", err)
+		}
+
+		// Verify instance was registered
+		manager, err := instances.NewManager(storageDir)
+		if err != nil {
+			t.Fatalf("Failed to create manager: %v", err)
+		}
+
+		instancesList, err := manager.List()
+		if err != nil {
+			t.Fatalf("Failed to list instances: %v", err)
+		}
+
+		if len(instancesList) != 1 {
+			t.Fatalf("Expected 1 instance, got %d", len(instancesList))
+		}
+	})
+}
+
 func TestInitCmd_Examples(t *testing.T) {
 	t.Parallel()
 
@@ -1591,7 +1884,7 @@ func TestInitCmd_Examples(t *testing.T) {
 	}
 
 	// Verify we have the expected number of examples
-	expectedCount := 5
+	expectedCount := 6
 	if len(commands) != expectedCount {
 		t.Errorf("Expected %d example commands, got %d", expectedCount, len(commands))
 	}

@@ -24,6 +24,7 @@ import (
 	"sync"
 	"testing"
 
+	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 	"github.com/kortex-hub/kortex-cli/pkg/git"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/fake"
@@ -1643,6 +1644,474 @@ func TestManager_generateUniqueName(t *testing.T) {
 
 		if result != expectedName {
 			t.Errorf("generateUniqueName() = %v, want %v", result, expectedName)
+		}
+	})
+}
+
+func TestManager_mergeConfigurations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns workspace config when no project or agent configs exist", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		// Create workspace config
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		if result == nil {
+			t.Fatal("Expected non-nil result")
+		}
+
+		// Should have workspace config
+		if result.Environment == nil || len(*result.Environment) != 1 {
+			t.Errorf("Expected 1 environment variable, got %v", result.Environment)
+		}
+	})
+
+	t.Run("merges workspace and project config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create projects.json with project-specific config
+		projectsJSON := `{
+  "github.com/user/repo": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		// Create workspace config
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		// Should have both workspace and project variables
+		if result.Environment == nil || len(*result.Environment) != 2 {
+			t.Fatalf("Expected 2 environment variables, got %v", result.Environment)
+		}
+
+		env := *result.Environment
+		envMap := make(map[string]string)
+		for _, e := range env {
+			if e.Value != nil {
+				envMap[e.Name] = *e.Value
+			}
+		}
+
+		if envMap["WORKSPACE_VAR"] != "workspace-value" {
+			t.Errorf("Expected WORKSPACE_VAR=workspace-value, got %v", envMap["WORKSPACE_VAR"])
+		}
+		if envMap["PROJECT_VAR"] != "project-value" {
+			t.Errorf("Expected PROJECT_VAR=project-value, got %v", envMap["PROJECT_VAR"])
+		}
+	})
+
+	t.Run("merges workspace and global project config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create projects.json with global config only
+		projectsJSON := `{
+  "": {
+    "environment": [
+      {
+        "name": "GLOBAL_VAR",
+        "value": "global-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		// Create workspace config
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		// Should have both workspace and global variables
+		if result.Environment == nil || len(*result.Environment) != 2 {
+			t.Fatalf("Expected 2 environment variables, got %v", result.Environment)
+		}
+
+		env := *result.Environment
+		envMap := make(map[string]string)
+		for _, e := range env {
+			if e.Value != nil {
+				envMap[e.Name] = *e.Value
+			}
+		}
+
+		if envMap["WORKSPACE_VAR"] != "workspace-value" {
+			t.Errorf("Expected WORKSPACE_VAR=workspace-value, got %v", envMap["WORKSPACE_VAR"])
+		}
+		if envMap["GLOBAL_VAR"] != "global-value" {
+			t.Errorf("Expected GLOBAL_VAR=global-value, got %v", envMap["GLOBAL_VAR"])
+		}
+	})
+
+	t.Run("merges workspace, project, and agent config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create projects.json
+		projectsJSON := `{
+  "github.com/user/repo": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		// Create agents.json
+		agentsJSON := `{
+  "claude": {
+    "environment": [
+      {
+        "name": "AGENT_VAR",
+        "value": "agent-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "agents.json"), []byte(agentsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write agents.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		// Create workspace config
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "claude")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		// Should have workspace, project, and agent variables
+		if result.Environment == nil || len(*result.Environment) != 3 {
+			t.Fatalf("Expected 3 environment variables, got %v", result.Environment)
+		}
+
+		env := *result.Environment
+		envMap := make(map[string]string)
+		for _, e := range env {
+			if e.Value != nil {
+				envMap[e.Name] = *e.Value
+			}
+		}
+
+		if envMap["WORKSPACE_VAR"] != "workspace-value" {
+			t.Errorf("Expected WORKSPACE_VAR=workspace-value, got %v", envMap["WORKSPACE_VAR"])
+		}
+		if envMap["PROJECT_VAR"] != "project-value" {
+			t.Errorf("Expected PROJECT_VAR=project-value, got %v", envMap["PROJECT_VAR"])
+		}
+		if envMap["AGENT_VAR"] != "agent-value" {
+			t.Errorf("Expected AGENT_VAR=agent-value, got %v", envMap["AGENT_VAR"])
+		}
+	})
+
+	t.Run("merges all config levels with proper precedence", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create projects.json with global and project-specific
+		projectsJSON := `{
+  "": {
+    "environment": [
+      {
+        "name": "GLOBAL_VAR",
+        "value": "global-value"
+      },
+      {
+        "name": "OVERRIDE_ME",
+        "value": "global-override"
+      }
+    ]
+  },
+  "github.com/user/repo": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      },
+      {
+        "name": "OVERRIDE_ME",
+        "value": "project-override"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		// Create agents.json
+		agentsJSON := `{
+  "claude": {
+    "environment": [
+      {
+        "name": "AGENT_VAR",
+        "value": "agent-value"
+      },
+      {
+        "name": "OVERRIDE_ME",
+        "value": "agent-override"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "agents.json"), []byte(agentsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write agents.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		// Create workspace config
+		workspaceValue := "workspace-value"
+		overrideValue := "workspace-override"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+				{Name: "OVERRIDE_ME", Value: &overrideValue},
+			},
+		}
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "claude")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		if result.Environment == nil {
+			t.Fatal("Expected non-nil environment")
+		}
+
+		env := *result.Environment
+		envMap := make(map[string]string)
+		for _, e := range env {
+			if e.Value != nil {
+				envMap[e.Name] = *e.Value
+			}
+		}
+
+		// Check all unique variables are present
+		if envMap["WORKSPACE_VAR"] != "workspace-value" {
+			t.Errorf("Expected WORKSPACE_VAR=workspace-value, got %v", envMap["WORKSPACE_VAR"])
+		}
+		if envMap["GLOBAL_VAR"] != "global-value" {
+			t.Errorf("Expected GLOBAL_VAR=global-value, got %v", envMap["GLOBAL_VAR"])
+		}
+		if envMap["PROJECT_VAR"] != "project-value" {
+			t.Errorf("Expected PROJECT_VAR=project-value, got %v", envMap["PROJECT_VAR"])
+		}
+		if envMap["AGENT_VAR"] != "agent-value" {
+			t.Errorf("Expected AGENT_VAR=agent-value, got %v", envMap["AGENT_VAR"])
+		}
+
+		// OVERRIDE_ME should be from agent (highest precedence)
+		if envMap["OVERRIDE_ME"] != "agent-override" {
+			t.Errorf("Expected OVERRIDE_ME=agent-override (from agent), got %v", envMap["OVERRIDE_ME"])
+		}
+	})
+
+	t.Run("handles nil workspace config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		result, err := mgr.mergeConfigurations("github.com/user/repo", nil, "")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		// Should return empty config
+		if result == nil {
+			t.Fatal("Expected non-nil result")
+		}
+	})
+
+	t.Run("returns error for invalid project config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create invalid projects.json
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte("not valid json"), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		_, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "")
+		if err == nil {
+			t.Error("Expected error for invalid project config, got nil")
+		}
+	})
+
+	t.Run("returns error for invalid agent config", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create invalid agents.json
+		if err := os.WriteFile(filepath.Join(configDir, "agents.json"), []byte("not valid json"), 0644); err != nil {
+			t.Fatalf("Failed to write agents.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		_, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "claude")
+		if err == nil {
+			t.Error("Expected error for invalid agent config, got nil")
+		}
+	})
+
+	t.Run("handles empty agent name", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		// Create projects.json
+		projectsJSON := `{
+  "github.com/user/repo": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ]
+  }
+}`
+		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
+			t.Fatalf("Failed to write projects.json: %v", err)
+		}
+
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+		mgr := m.(*manager)
+
+		workspaceValue := "workspace-value"
+		workspaceCfg := &workspace.WorkspaceConfiguration{
+			Environment: &[]workspace.EnvironmentVariable{
+				{Name: "WORKSPACE_VAR", Value: &workspaceValue},
+			},
+		}
+
+		// Empty agent name should skip agent config loading
+		result, err := mgr.mergeConfigurations("github.com/user/repo", workspaceCfg, "")
+		if err != nil {
+			t.Fatalf("mergeConfigurations() unexpected error = %v", err)
+		}
+
+		// Should have workspace and project variables only (no agent)
+		if result.Environment == nil || len(*result.Environment) != 2 {
+			t.Errorf("Expected 2 environment variables, got %v", result.Environment)
 		}
 	})
 }

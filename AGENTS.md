@@ -340,6 +340,184 @@ The `Load()` method automatically validates the configuration and returns `ErrIn
 - Uses nested JSON structure for clarity and extensibility
 - Model types are imported from external API package for consistency
 
+### Multi-Level Configuration System
+
+The multi-level configuration system allows users to customize workspace settings at different levels: workspace, project, and agent. Configurations are merged with proper precedence, enabling:
+- **Workspace-level config** (`.kortex/workspace.json`) - Shared project configuration committed to repository
+- **Project-specific config** (`~/.kortex-cli/config/projects.json`) - User's custom config for specific projects
+- **Global config** (empty string `""` key in `projects.json`) - Settings applied to all projects (e.g., `.gitconfig`, SSH keys)
+- **Agent-specific config** (`~/.kortex-cli/config/agents.json`) - Per-agent overrides (e.g., Claude, Goose)
+
+**Key Components:**
+- **ConfigMerger** (`pkg/config/merger.go`): Merges multiple `WorkspaceConfiguration` objects
+- **AgentConfigLoader** (`pkg/config/agents.go`): Loads agent-specific configuration
+- **ProjectConfigLoader** (`pkg/config/projects.go`): Loads project and global configuration
+- **Manager Integration** (`pkg/instances/manager.go`): Handles config loading and merging during instance creation
+
+**Configuration Precedence** (highest to lowest):
+1. Agent-specific configuration (from `agents.json`)
+2. Project-specific configuration (from `projects.json` using project ID)
+3. Global project configuration (from `projects.json` using empty string `""` key)
+4. Workspace-level configuration (from `.kortex/workspace.json`)
+
+**File Locations:**
+
+All user-specific configuration files are stored under the storage directory (default: `~/.kortex-cli`, configurable via `--storage` flag or `KORTEX_CLI_STORAGE` environment variable):
+
+- Agent configs: `<storage-dir>/config/agents.json`
+- Project configs: `<storage-dir>/config/projects.json`
+- Workspace configs: `.kortex/workspace.json` (in workspace directory)
+
+**Agent Configuration Structure:**
+
+`<storage-dir>/config/agents.json`:
+```json
+{
+  "claude": {
+    "environment": [
+      {
+        "name": "DEBUG",
+        "value": "true"
+      }
+    ],
+    "mounts": {
+      "configs": [".claude-config"]
+    }
+  },
+  "goose": {
+    "environment": [
+      {
+        "name": "GOOSE_MODE",
+        "value": "verbose"
+      }
+    ]
+  }
+}
+```
+
+**Project Configuration Structure:**
+
+`<storage-dir>/config/projects.json`:
+```json
+{
+  "": {
+    "mounts": {
+      "configs": [".gitconfig", ".ssh"]
+    }
+  },
+  "github.com/kortex-hub/kortex-cli": {
+    "environment": [
+      {
+        "name": "PROJECT_VAR",
+        "value": "project-value"
+      }
+    ],
+    "mounts": {
+      "dependencies": ["../kortex-common"]
+    }
+  },
+  "/home/user/my/project": {
+    "environment": [
+      {
+        "name": "LOCAL_DEV",
+        "value": "true"
+      }
+    ]
+  }
+}
+```
+
+**Special Keys:**
+- Empty string `""` in `projects.json` represents global/default configuration applied to all projects
+- Useful for common settings like GitHub credentials, SSH keys, or global environment variables
+- Project-specific configs override global config
+
+**Using the Multi-Level Config System:**
+
+The Manager handles all configuration loading and merging automatically:
+
+```go
+// In command code (e.g., init command)
+addedInstance, err := manager.Add(ctx, instances.AddOptions{
+    Instance:        instance,
+    RuntimeType:     "fake",
+    WorkspaceConfig: workspaceConfig,  // From .kortex/workspace.json
+    Project:         "custom-project",  // Optional override
+    Agent:           "claude",          // Optional agent name
+})
+```
+
+The Manager's `Add()` method:
+1. Detects project ID (or uses custom override)
+2. Loads project config (global `""` + project-specific merged)
+3. Loads agent config (if agent name provided)
+4. Merges configs: workspace → global → project → agent
+5. Passes merged config to runtime
+
+**Merging Behavior:**
+
+- **Environment variables**: Later configs override earlier ones by name
+  - If the same variable appears in multiple configs, the one from the higher-precedence config wins
+- **Mount dependencies**: Deduplicated list (preserves order, removes duplicates)
+- **Mount configs**: Deduplicated list (preserves order, removes duplicates)
+
+**Example Merge Flow:**
+
+Given:
+- Workspace config: `DEBUG=workspace`, `WORKSPACE_VAR=value1`
+- Global config: `GLOBAL_VAR=global`
+- Project config: `DEBUG=project`, `PROJECT_VAR=value2`
+- Agent config: `DEBUG=agent`, `AGENT_VAR=value3`
+
+Result: `DEBUG=agent`, `WORKSPACE_VAR=value1`, `GLOBAL_VAR=global`, `PROJECT_VAR=value2`, `AGENT_VAR=value3`
+
+**Loading Configuration Programmatically:**
+
+```go
+import "github.com/kortex-hub/kortex-cli/pkg/config"
+
+// Load project config (includes global + project-specific merged)
+projectLoader, err := config.NewProjectConfigLoader(storageDir)
+projectConfig, err := projectLoader.Load("github.com/user/repo")
+
+// Load agent config
+agentLoader, err := config.NewAgentConfigLoader(storageDir)
+agentConfig, err := agentLoader.Load("claude")
+
+// Merge configurations
+merger := config.NewMerger()
+merged := merger.Merge(workspaceConfig, projectConfig)
+merged = merger.Merge(merged, agentConfig)
+```
+
+**Testing Multi-Level Configs:**
+
+```go
+// Create test config files
+configDir := filepath.Join(storageDir, "config")
+os.MkdirAll(configDir, 0755)
+
+agentsJSON := `{"claude": {"environment": [{"name": "VAR", "value": "val"}]}}`
+os.WriteFile(filepath.Join(configDir, "agents.json"), []byte(agentsJSON), 0644)
+
+// Run init with agent
+rootCmd.SetArgs([]string{"init", sourcesDir, "--runtime", "fake", "--agent", "claude"})
+rootCmd.Execute()
+```
+
+**Design Principles:**
+- Configuration merging is handled by Manager, not commands
+- Missing config files return empty configs (not errors)
+- Invalid JSON or validation errors are reported
+- All loaders follow the module design pattern
+- Cross-platform compatible (uses `filepath.Join()`, `t.TempDir()`)
+- Storage directory is configurable via `--storage` flag or `KORTEX_CLI_STORAGE` env var
+
+**Error Handling:**
+- `config.ErrInvalidAgentConfig` - Agent configuration is invalid
+- `config.ErrInvalidProjectConfig` - Project configuration is invalid
+- Both loaders validate configurations using the same validation logic as workspace config
+
 ### Skills System
 Skills are reusable capabilities that can be discovered and executed by AI agents:
 - **Location**: `skills/<skill-name>/SKILL.md`

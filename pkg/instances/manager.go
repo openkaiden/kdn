@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
+	"github.com/kortex-hub/kortex-cli/pkg/config"
 	"github.com/kortex-hub/kortex-cli/pkg/generator"
 	"github.com/kortex-hub/kortex-cli/pkg/git"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
@@ -46,10 +47,12 @@ type AddOptions struct {
 	Instance Instance
 	// RuntimeType is the type of runtime to use
 	RuntimeType string
-	// WorkspaceConfig is the loaded workspace configuration (optional, can be nil)
+	// WorkspaceConfig is the workspace-level configuration from .kortex/workspace.json (optional, can be nil)
 	WorkspaceConfig *workspace.WorkspaceConfiguration
 	// Project is an optional custom project identifier to override auto-detection
 	Project string
+	// Agent is an optional agent name for loading agent-specific configuration
+	Agent string
 }
 
 // Manager handles instance storage and operations
@@ -76,6 +79,7 @@ type Manager interface {
 // manager is the internal implementation of Manager
 type manager struct {
 	storageFile     string
+	storageDir      string
 	mu              sync.RWMutex
 	factory         InstanceFactory
 	generator       generator.Generator
@@ -123,6 +127,7 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 	storageFile := filepath.Join(storageDir, DefaultStorageFileName)
 	return &manager{
 		storageFile:     storageFile,
+		storageDir:      storageDir,
 		factory:         factory,
 		generator:       gen,
 		runtimeRegistry: reg,
@@ -186,17 +191,23 @@ func (m *manager) Add(ctx context.Context, opts AddOptions) (Instance, error) {
 		project = m.detectProject(ctx, inst.GetSourceDir())
 	}
 
+	// Merge configurations from all levels: workspace -> project (global + specific) -> agent
+	mergedConfig, err := m.mergeConfigurations(project, opts.WorkspaceConfig, opts.Agent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge configurations: %w", err)
+	}
+
 	// Get the runtime
 	rt, err := m.runtimeRegistry.Get(opts.RuntimeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get runtime: %w", err)
 	}
 
-	// Create runtime instance
+	// Create runtime instance with merged configuration
 	runtimeInfo, err := rt.Create(ctx, runtime.CreateParams{
 		Name:            name,
 		SourcePath:      inst.GetSourceDir(),
-		WorkspaceConfig: opts.WorkspaceConfig,
+		WorkspaceConfig: mergedConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create runtime instance: %w", err)
@@ -540,6 +551,45 @@ func (m *manager) detectProject(ctx context.Context, sourceDir string) string {
 		return filepath.Join(repoInfo.RootDir, repoInfo.RelativePath)
 	}
 	return repoInfo.RootDir
+}
+
+// mergeConfigurations loads and merges configurations from all levels:
+// workspace -> project (global + specific) -> agent
+func (m *manager) mergeConfigurations(projectID string, workspaceConfig *workspace.WorkspaceConfiguration, agentName string) (*workspace.WorkspaceConfiguration, error) {
+	merger := config.NewMerger()
+	result := workspaceConfig
+
+	// Load project-specific configuration (includes global config merged with project-specific)
+	projectLoader, err := config.NewProjectConfigLoader(m.storageDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project config loader: %w", err)
+	}
+
+	projectConfig, err := projectLoader.Load(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load project configuration: %w", err)
+	}
+
+	// Merge workspace config with project config
+	result = merger.Merge(result, projectConfig)
+
+	// Load agent-specific configuration if agent name is specified
+	if agentName != "" {
+		agentLoader, err := config.NewAgentConfigLoader(m.storageDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create agent config loader: %w", err)
+		}
+
+		agentConfig, err := agentLoader.Load(agentName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load agent configuration: %w", err)
+		}
+
+		// Merge with agent config (highest precedence)
+		result = merger.Merge(result, agentConfig)
+	}
+
+	return result, nil
 }
 
 // loadInstances reads instances from the storage file
