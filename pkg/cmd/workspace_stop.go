@@ -101,7 +101,8 @@ func (w *workspaceStopCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output only the ID (text mode)
-	cmd.Println(w.id)
+	out := cmd.OutOrStdout()
+	fmt.Fprintln(out, w.id)
 	return nil
 }
 

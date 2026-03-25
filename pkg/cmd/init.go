@@ -180,15 +180,16 @@ func (i *initCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Handle text output
+	out := cmd.OutOrStdout()
 	if i.verbose {
-		cmd.Printf("Registered workspace:\n")
-		cmd.Printf("  ID: %s\n", addedInstance.GetID())
-		cmd.Printf("  Name: %s\n", addedInstance.GetName())
-		cmd.Printf("  Project: %s\n", addedInstance.GetProject())
-		cmd.Printf("  Sources directory: %s\n", addedInstance.GetSourceDir())
-		cmd.Printf("  Configuration directory: %s\n", addedInstance.GetConfigDir())
+		fmt.Fprintf(out, "Registered workspace:\n")
+		fmt.Fprintf(out, "  ID: %s\n", addedInstance.GetID())
+		fmt.Fprintf(out, "  Name: %s\n", addedInstance.GetName())
+		fmt.Fprintf(out, "  Project: %s\n", addedInstance.GetProject())
+		fmt.Fprintf(out, "  Sources directory: %s\n", addedInstance.GetSourceDir())
+		fmt.Fprintf(out, "  Configuration directory: %s\n", addedInstance.GetConfigDir())
 	} else {
-		cmd.Println(addedInstance.GetID())
+		fmt.Fprintln(out, addedInstance.GetID())
 	}
 
 	return nil

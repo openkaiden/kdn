@@ -84,18 +84,19 @@ func (w *workspaceListCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display the instances in text format
+	out := cmd.OutOrStdout()
 	if len(instancesList) == 0 {
-		cmd.Println("No workspaces registered")
+		fmt.Fprintln(out, "No workspaces registered")
 		return nil
 	}
 
 	for _, instance := range instancesList {
-		cmd.Printf("ID: %s\n", instance.GetID())
-		cmd.Printf("  Name: %s\n", instance.GetName())
-		cmd.Printf("  Project: %s\n", instance.GetProject())
-		cmd.Printf("  Sources: %s\n", instance.GetSourceDir())
-		cmd.Printf("  Configuration: %s\n", instance.GetConfigDir())
-		cmd.Println()
+		fmt.Fprintf(out, "ID: %s\n", instance.GetID())
+		fmt.Fprintf(out, "  Name: %s\n", instance.GetName())
+		fmt.Fprintf(out, "  Project: %s\n", instance.GetProject())
+		fmt.Fprintf(out, "  Sources: %s\n", instance.GetSourceDir())
+		fmt.Fprintf(out, "  Configuration: %s\n", instance.GetConfigDir())
+		fmt.Fprintln(out)
 	}
 
 	return nil
