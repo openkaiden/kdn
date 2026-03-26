@@ -22,11 +22,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime"
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
 	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/exec"
 	"github.com/kortex-hub/kortex-cli/pkg/steplogger"
+	"github.com/kortex-hub/kortex-cli/pkg/system"
 )
 
 func TestValidateDependencyPath(t *testing.T) {
@@ -243,13 +246,27 @@ func TestCreateInstanceDirectory(t *testing.T) {
 func TestCreateContainerfile(t *testing.T) {
 	t.Parallel()
 
-	t.Run("creates Containerfile with correct content", func(t *testing.T) {
+	t.Run("creates Containerfile with default configs", func(t *testing.T) {
 		t.Parallel()
 
 		instanceDir := t.TempDir()
 		p := &podmanRuntime{}
 
-		err := p.createContainerfile(instanceDir)
+		// Create default configs
+		imageConfig := &config.ImageConfig{
+			Version:     "latest",
+			Packages:    []string{"which", "procps-ng"},
+			Sudo:        []string{"/usr/bin/dnf"},
+			RunCommands: []string{},
+		}
+
+		agentConfig := &config.AgentConfig{
+			Packages:        []string{},
+			RunCommands:     []string{"curl -fsSL https://claude.ai/install.sh | bash"},
+			TerminalCommand: []string{"claude"},
+		}
+
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig)
 		if err != nil {
 			t.Fatalf("createContainerfile() failed: %v", err)
 		}
@@ -265,6 +282,82 @@ func TestCreateContainerfile(t *testing.T) {
 		lines := strings.Split(string(content), "\n")
 		if len(lines) == 0 || lines[0]+"\n" != expectedFirstLine {
 			t.Errorf("Expected Containerfile to start with:\n%s\nGot:\n%s", expectedFirstLine, lines[0])
+		}
+
+		// Verify sudoers file exists
+		sudoersPath := filepath.Join(instanceDir, "sudoers")
+		sudoersContent, err := os.ReadFile(sudoersPath)
+		if err != nil {
+			t.Fatalf("Failed to read sudoers: %v", err)
+		}
+
+		// Verify sudoers has ALLOWED alias
+		if !strings.Contains(string(sudoersContent), "Cmnd_Alias ALLOWED") {
+			t.Error("Expected sudoers to contain 'Cmnd_Alias ALLOWED'")
+		}
+	})
+
+	t.Run("creates Containerfile with custom configs", func(t *testing.T) {
+		t.Parallel()
+
+		instanceDir := t.TempDir()
+		p := &podmanRuntime{}
+
+		// Create custom configs
+		imageConfig := &config.ImageConfig{
+			Version:     "40",
+			Packages:    []string{"custom-package"},
+			Sudo:        []string{"/usr/bin/custom"},
+			RunCommands: []string{"echo 'custom setup'"},
+		}
+
+		agentConfig := &config.AgentConfig{
+			Packages:        []string{"agent-package"},
+			RunCommands:     []string{"echo 'agent setup'"},
+			TerminalCommand: []string{"custom-agent"},
+		}
+
+		err := p.createContainerfile(instanceDir, imageConfig, agentConfig)
+		if err != nil {
+			t.Fatalf("createContainerfile() failed: %v", err)
+		}
+
+		// Verify Containerfile contains custom version
+		containerfilePath := filepath.Join(instanceDir, "Containerfile")
+		content, err := os.ReadFile(containerfilePath)
+		if err != nil {
+			t.Fatalf("Failed to read Containerfile: %v", err)
+		}
+
+		if !strings.Contains(string(content), "FROM registry.fedoraproject.org/fedora:40") {
+			t.Error("Expected Containerfile to use custom Fedora version 40")
+		}
+
+		// Verify custom packages are installed
+		if !strings.Contains(string(content), "custom-package") {
+			t.Error("Expected Containerfile to contain custom package")
+		}
+		if !strings.Contains(string(content), "agent-package") {
+			t.Error("Expected Containerfile to contain agent package")
+		}
+
+		// Verify custom RUN commands
+		if !strings.Contains(string(content), "RUN echo 'custom setup'") {
+			t.Error("Expected Containerfile to contain custom RUN command")
+		}
+		if !strings.Contains(string(content), "RUN echo 'agent setup'") {
+			t.Error("Expected Containerfile to contain agent RUN command")
+		}
+
+		// Verify sudoers contains custom binary
+		sudoersPath := filepath.Join(instanceDir, "sudoers")
+		sudoersContent, err := os.ReadFile(sudoersPath)
+		if err != nil {
+			t.Fatalf("Failed to read sudoers: %v", err)
+		}
+
+		if !strings.Contains(string(sudoersContent), "/usr/bin/custom") {
+			t.Error("Expected sudoers to contain custom binary")
 		}
 	})
 }
@@ -554,7 +647,11 @@ func TestCreate_StepLogger_Success(t *testing.T) {
 	}
 
 	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
-	p.storageDir = storageDir
+
+	// Initialize the runtime with storage
+	if err := p.Initialize(storageDir); err != nil {
+		t.Fatalf("Initialize() failed: %v", err)
+	}
 
 	fakeLogger := &fakeStepLogger{}
 	ctx := steplogger.WithLogger(context.Background(), fakeLogger)
@@ -628,6 +725,7 @@ func TestCreate_StepLogger_FailOnCreateInstanceDirectory(t *testing.T) {
 		system:     &fakeSystem{},
 		executor:   exec.NewFake(),
 		storageDir: notADir, // Will fail when trying to create subdirectory
+		config:     &fakeConfig{},
 	}
 
 	fakeLogger := &fakeStepLogger{}
@@ -684,6 +782,7 @@ func TestCreate_StepLogger_FailOnCreateContainerfile(t *testing.T) {
 		system:     &fakeSystem{},
 		executor:   exec.NewFake(),
 		storageDir: storageDir,
+		config:     &fakeConfig{},
 	}
 
 	fakeLogger := &fakeStepLogger{}
@@ -746,7 +845,11 @@ func TestCreate_StepLogger_FailOnBuildImage(t *testing.T) {
 	}
 
 	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
-	p.storageDir = storageDir
+
+	// Initialize the runtime with storage
+	if err := p.Initialize(storageDir); err != nil {
+		t.Fatalf("Initialize() failed: %v", err)
+	}
 
 	fakeLogger := &fakeStepLogger{}
 	ctx := steplogger.WithLogger(context.Background(), fakeLogger)
@@ -812,7 +915,11 @@ func TestCreate_StepLogger_FailOnCreateContainer(t *testing.T) {
 	}
 
 	p := newWithDeps(&fakeSystem{}, fakeExec).(*podmanRuntime)
-	p.storageDir = storageDir
+
+	// Initialize the runtime with storage
+	if err := p.Initialize(storageDir); err != nil {
+		t.Fatalf("Initialize() failed: %v", err)
+	}
 
 	fakeLogger := &fakeStepLogger{}
 	ctx := steplogger.WithLogger(context.Background(), fakeLogger)
@@ -857,5 +964,139 @@ func TestCreate_StepLogger_FailOnCreateContainer(t *testing.T) {
 
 	if fakeLogger.failCalls[0] == nil {
 		t.Error("Expected Fail() to be called with non-nil error")
+	}
+}
+
+func TestCreate_CleansUpInstanceDirectory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("removes instance directory after successful create", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		// Create a fake executor that simulates successful operations
+		fakeExec := &fakeExecutor{
+			runErr:    nil,
+			outputErr: nil,
+			output:    []byte("container123"),
+		}
+
+		p := newWithDeps(system.New(), fakeExec).(*podmanRuntime)
+
+		// Initialize the runtime with storage
+		if err := p.Initialize(storageDir); err != nil {
+			t.Fatalf("Initialize() failed: %v", err)
+		}
+
+		params := runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+		}
+
+		// Before Create, verify instances directory doesn't exist yet
+		instancesDir := filepath.Join(storageDir, "instances")
+
+		// Call Create
+		_, err := p.Create(context.Background(), params)
+		if err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		// After Create, verify the instance directory was cleaned up
+		// On Windows, file locks may delay cleanup, so retry with a timeout
+		instanceDir := filepath.Join(instancesDir, "test-workspace")
+		assertDirectoryRemoved(t, instanceDir)
+	})
+
+	t.Run("removes instance directory even on build failure", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		// Create a fake executor that simulates build failure
+		fakeExec := &fakeExecutor{
+			runErr:    fmt.Errorf("image build failed"),
+			outputErr: nil,
+			output:    nil,
+		}
+
+		p := newWithDeps(system.New(), fakeExec).(*podmanRuntime)
+
+		// Initialize the runtime with storage
+		if err := p.Initialize(storageDir); err != nil {
+			t.Fatalf("Initialize() failed: %v", err)
+		}
+
+		params := runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+		}
+
+		instancesDir := filepath.Join(storageDir, "instances")
+
+		// Call Create (should fail on build)
+		_, err := p.Create(context.Background(), params)
+		if err == nil {
+			t.Fatal("Expected Create() to fail, but it succeeded")
+		}
+
+		// Even after failure, verify the instance directory was cleaned up
+		// On Windows, file locks may delay cleanup, so retry with a timeout
+		instanceDir := filepath.Join(instancesDir, "test-workspace")
+		assertDirectoryRemoved(t, instanceDir)
+	})
+}
+
+// fakeExecutor is a test double for the exec.Executor interface
+type fakeExecutor struct {
+	runErr    error
+	outputErr error
+	output    []byte
+}
+
+func (f *fakeExecutor) Run(ctx context.Context, args ...string) error {
+	return f.runErr
+}
+
+func (f *fakeExecutor) Output(ctx context.Context, args ...string) ([]byte, error) {
+	if f.outputErr != nil {
+		return nil, f.outputErr
+	}
+	return f.output, nil
+}
+
+// assertDirectoryRemoved checks that a directory has been removed.
+// On Windows, file locks may delay cleanup, so this retries with a timeout.
+func assertDirectoryRemoved(t *testing.T, dir string) {
+	t.Helper()
+
+	// Retry for up to 1 second with 50ms intervals (Windows file lock workaround)
+	maxAttempts := 20
+	interval := 50 * time.Millisecond
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			// Directory successfully removed
+			return
+		}
+
+		if attempt < maxAttempts-1 {
+			time.Sleep(interval)
+		}
+	}
+
+	// Final check after all retries
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("Expected instance directory to be removed, but it still exists: %s", dir)
+
+		// List contents for debugging
+		if err == nil {
+			entries, _ := os.ReadDir(dir)
+			t.Logf("Instance directory contents: %v", entries)
+		}
 	}
 }

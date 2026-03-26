@@ -14,7 +14,10 @@
 
 package podman
 
-import "github.com/kortex-hub/kortex-cli/pkg/steplogger"
+import (
+	"github.com/kortex-hub/kortex-cli/pkg/runtime/podman/config"
+	"github.com/kortex-hub/kortex-cli/pkg/steplogger"
+)
 
 // fakeStepLogger is a fake implementation of steplogger.StepLogger that records calls for testing.
 type fakeStepLogger struct {
@@ -44,4 +47,31 @@ func (f *fakeStepLogger) Fail(err error) {
 
 func (f *fakeStepLogger) Complete() {
 	f.completeCalls++
+}
+
+// fakeConfig is a fake implementation of config.Config that returns default configurations.
+type fakeConfig struct{}
+
+// Ensure fakeConfig implements config.Config at compile time.
+var _ config.Config = (*fakeConfig)(nil)
+
+func (f *fakeConfig) LoadImage() (*config.ImageConfig, error) {
+	return &config.ImageConfig{
+		Version:     "latest",
+		Packages:    []string{"which", "procps-ng"},
+		Sudo:        []string{"/usr/bin/dnf"},
+		RunCommands: []string{},
+	}, nil
+}
+
+func (f *fakeConfig) LoadAgent(agentName string) (*config.AgentConfig, error) {
+	return &config.AgentConfig{
+		Packages:        []string{},
+		RunCommands:     []string{"curl -fsSL https://claude.ai/install.sh | bash"},
+		TerminalCommand: []string{"claude"},
+	}, nil
+}
+
+func (f *fakeConfig) GenerateDefaults() error {
+	return nil
 }
