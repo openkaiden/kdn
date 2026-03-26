@@ -59,7 +59,7 @@ type CreateParams struct {
 	// WorkspaceConfig is the workspace configuration (optional, can be nil if no configuration exists).
 	WorkspaceConfig *workspace.WorkspaceConfiguration
 
-	// Agent is the agent name for loading agent-specific configuration (optional, can be empty).
+	// Agent is the agent name for loading agent-specific configuration (required, cannot be empty).
 	Agent string
 }
 

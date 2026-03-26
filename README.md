@@ -196,7 +196,7 @@ All errors are returned in JSON format when using `--output json`, with the erro
 **Error: Non-existent directory**
 
 ```bash
-$ kortex-cli init /tmp/no-exist --runtime fake -o json
+$ kortex-cli init /tmp/no-exist --runtime fake --agent claude -o json
 ```
 
 ```json
@@ -261,7 +261,7 @@ Sets the default runtime to use when registering a workspace with the `init` com
 
 ```bash
 export KORTEX_CLI_DEFAULT_RUNTIME=fake
-kortex-cli init /path/to/project
+kortex-cli init /path/to/project --agent claude
 ```
 
 **Priority:**
@@ -279,10 +279,10 @@ The runtime is determined in the following order (highest to lowest priority):
 export KORTEX_CLI_DEFAULT_RUNTIME=fake
 
 # Register a workspace using the environment variable
-kortex-cli init /path/to/project
+kortex-cli init /path/to/project --agent claude
 
 # Override the environment variable with the flag
-kortex-cli init /path/to/another-project --runtime podman
+kortex-cli init /path/to/another-project --agent claude --runtime podman
 ```
 
 **Notes:**
@@ -340,7 +340,7 @@ Sets the default storage directory where kortex-cli stores its data files.
 
 ```bash
 export KORTEX_CLI_STORAGE=/custom/path/to/storage
-kortex-cli init /path/to/project --runtime fake
+kortex-cli init /path/to/project --runtime fake --agent claude
 ```
 
 **Priority:**
@@ -358,7 +358,7 @@ The storage directory is determined in the following order (highest to lowest pr
 export KORTEX_CLI_STORAGE=/var/lib/kortex
 
 # All commands will use this storage directory
-kortex-cli init /path/to/project --runtime fake
+kortex-cli init /path/to/project --runtime fake --agent claude
 kortex-cli list
 
 # Override the environment variable with the flag
@@ -552,7 +552,7 @@ Controls agent-specific packages and installation steps.
   "packages": [],
   "run_commands": [
     "curl -fsSL --proto-redir '-all,https' --tlsv1.3 https://claude.ai/install.sh | bash",
-    "mkdir /home/agent/.config"
+    "mkdir -p /home/agent/.config"
   ],
   "terminal_command": [
     "claude"
@@ -591,7 +591,7 @@ Configuration changes take effect when you **register a new workspace with `init
 
 2. Register a new workspace (this creates the Containerfile and builds the image):
    ```bash
-   kortex-cli init /path/to/project --runtime podman
+   kortex-cli init /path/to/project --runtime podman --agent claude
    ```
 
 3. Start the workspace:
@@ -716,7 +716,7 @@ When you register a workspace with `kortex-cli init`, the configuration is autom
 
 **Example - Invalid configuration (both value and secret set):**
 ```bash
-$ kortex-cli init /path/to/project --runtime fake
+$ kortex-cli init /path/to/project --runtime fake --agent claude
 ```
 ```text
 Error: workspace configuration validation failed: invalid workspace configuration:
@@ -725,7 +725,7 @@ environment variable "API_KEY" (index 0) has both value and secret set
 
 **Example - Invalid configuration (absolute path in mounts):**
 ```bash
-$ kortex-cli init /path/to/project --runtime fake
+$ kortex-cli init /path/to/project --runtime fake --agent claude
 ```
 ```text
 Error: workspace configuration validation failed: invalid workspace configuration:
@@ -1173,15 +1173,15 @@ kortex-cli init -r fake -a claude -o json -v
 **Examples:**
 ```bash
 # First workspace in /home/user/project
-kortex-cli init /home/user/project --runtime fake
+kortex-cli init /home/user/project --runtime fake --agent claude
 # Name: "project"
 
 # Second workspace with the same directory name
-kortex-cli init /home/user/another-location/project --runtime fake --name "project"
+kortex-cli init /home/user/another-location/project --runtime fake --agent claude --name "project"
 # Name: "project-2"
 
 # Third workspace with the same name
-kortex-cli init /tmp/project --runtime fake --name "project"
+kortex-cli init /tmp/project --runtime fake --agent claude --name "project"
 # Name: "project-3"
 ```
 
@@ -1210,11 +1210,11 @@ The project is the repository remote URL (without `.git` suffix) plus the worksp
 # origin:   https://github.com/myuser/kortex-cli.git (fork)
 
 # Workspace at repository root
-kortex-cli init /home/user/kortex-cli --runtime fake
+kortex-cli init /home/user/kortex-cli --runtime fake --agent claude
 # Project: https://github.com/kortex-hub/kortex-cli/
 
 # Workspace in subdirectory
-kortex-cli init /home/user/kortex-cli/pkg/git --runtime fake
+kortex-cli init /home/user/kortex-cli/pkg/git --runtime fake --agent claude
 # Project: https://github.com/kortex-hub/kortex-cli/pkg/git
 ```
 
@@ -1230,11 +1230,11 @@ The project is the repository root directory path plus the workspace's relative 
 **Example - Local repository:**
 ```bash
 # Workspace at repository root
-kortex-cli init /home/user/local-repo --runtime fake
+kortex-cli init /home/user/local-repo --runtime fake --agent claude
 # Project: /home/user/local-repo
 
 # Workspace in subdirectory
-kortex-cli init /home/user/local-repo/pkg/utils --runtime fake
+kortex-cli init /home/user/local-repo/pkg/utils --runtime fake --agent claude
 # Project: /home/user/local-repo/pkg/utils
 ```
 
@@ -1244,7 +1244,7 @@ The project is the workspace source directory path:
 
 **Example - Regular directory:**
 ```bash
-kortex-cli init /tmp/workspace --runtime fake
+kortex-cli init /tmp/workspace --runtime fake --agent claude
 # Project: /tmp/workspace
 ```
 
