@@ -23,7 +23,7 @@ site_url: https://kortex-hub.github.io/kortex-cli/
 # Repository configuration
 repo_name: kortex-hub/kortex-cli
 repo_url: https://github.com/kortex-hub/kortex-cli
-edit_uri: edit/main/
+edit_uri: blob/main/README.md
 
 # Copyright
 copyright: Copyright &copy; 2026 Red Hat, Inc. Licensed under Apache License 2.0
