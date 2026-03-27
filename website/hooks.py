@@ -81,7 +81,7 @@ def split_readme_content(content):
             current_section = {
                 'title': title,
                 'slug': slug,
-                'content': [line]  # Include the heading
+                'content': []  # Don't include the heading (MkDocs shows it as page title)
             }
             sections.append(current_section)
         else:
