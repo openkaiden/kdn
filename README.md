@@ -19,6 +19,49 @@ kortex-cli is a command-line interface for launching and managing AI agents with
 - Integrate with various LLM providers
 - Consistent interface across different agent types
 
+## Getting Started
+
+### Prerequisites
+
+- Go 1.25+
+- Make
+
+### Build
+
+```bash
+make build
+```
+
+This creates the `kortex-cli` binary in the current directory.
+
+### Run
+
+```bash
+# Display help and available commands
+./kortex-cli --help
+
+# Execute a specific command
+./kortex-cli <command> [flags]
+```
+
+### Install
+
+To install the binary to your `GOPATH/bin` for system-wide access:
+
+```bash
+make install
+```
+
+### Run Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage report
+make test-coverage
+```
+
 ## Glossary
 
 ### Agent
