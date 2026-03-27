@@ -45,11 +45,10 @@ func (w *workspaceStartCmd) preRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported output format: %s (supported: json)", w.output)
 	}
 
-	// Silence Cobra's error and usage output when JSON mode is enabled
-	// This prevents "Error: ..." and usage info from being printed
+	// Silence Cobra's default error output to stderr when JSON mode is enabled,
+	// because we write the error in the JSON response to stdout instead
 	if w.output == "json" {
 		cmd.SilenceErrors = true
-		cmd.SilenceUsage = true
 	}
 
 	w.id = args[0]

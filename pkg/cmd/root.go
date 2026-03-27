@@ -39,9 +39,10 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "kortex-cli",
-		Short: "Launch and manage AI agent workspaces with custom configurations",
-		Args:  cobra.NoArgs,
+		Use:          "kortex-cli",
+		Short:        "Launch and manage AI agent workspaces with custom configurations",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
 	}
 
 	// Add subcommands

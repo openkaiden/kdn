@@ -56,11 +56,10 @@ func (i *initCmd) preRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported output format: %s (supported: json)", i.output)
 	}
 
-	// Silence Cobra's error and usage output when JSON mode is enabled
-	// This prevents "Error: ..." and usage info from being printed
+	// Silence Cobra's default error output to stderr when JSON mode is enabled,
+	// because we write the error in the JSON response to stdout instead
 	if i.output == "json" {
 		cmd.SilenceErrors = true
-		cmd.SilenceUsage = true
 	}
 
 	// Get storage directory from global flag
