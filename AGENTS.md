@@ -220,7 +220,8 @@ The Podman runtime supports runtime-specific configuration for **building and co
 
 **Configuration Files:**
 - `<storage-dir>/runtimes/podman/config/image.json` - Base image configuration
-- `<storage-dir>/runtimes/podman/config/claude.json` - Agent-specific configuration
+- `<storage-dir>/runtimes/podman/config/claude.json` - Claude agent configuration
+- `<storage-dir>/runtimes/podman/config/goose.json` - Goose agent configuration
 
 **For Podman runtime configuration details, use:** `/working-with-podman-runtime-config`
 

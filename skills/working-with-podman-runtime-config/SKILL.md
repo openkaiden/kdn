@@ -29,7 +29,7 @@ The Podman runtime configuration allows customization of the base image, install
 - **Config Interface** (`pkg/runtime/podman/config/config.go`): Interface for managing Podman runtime configuration
 - **ImageConfig** (`pkg/runtime/podman/config/types.go`): Base image configuration (Fedora version, packages, sudo binaries, custom RUN commands)
 - **AgentConfig** (`pkg/runtime/podman/config/types.go`): Agent-specific configuration (packages, RUN commands, terminal command)
-- **Defaults** (`pkg/runtime/podman/config/defaults.go`): Default configurations for image and Claude agent
+- **Defaults** (`pkg/runtime/podman/config/defaults.go`): Default configurations for image and agents (Claude, Goose)
 
 ## Configuration Storage
 
@@ -38,7 +38,8 @@ Configuration files are stored in the runtime's storage directory:
 ```text
 <storage-dir>/runtimes/podman/config/
 ├── image.json    # Base image configuration
-└── claude.json   # Agent-specific configuration (e.g., for Claude Code)
+├── claude.json   # Claude agent configuration
+└── goose.json    # Goose agent configuration
 ```
 
 ## Configuration Files
@@ -60,16 +61,32 @@ Configuration files are stored in the runtime's storage directory:
 - `sudo` (optional) - Absolute paths to binaries the user can run with sudo (creates single `ALLOWED` Cmnd_Alias)
 - `run_commands` (optional) - Custom shell commands to execute during image build (before agent setup)
 
-### claude.json - Agent-Specific Configuration
+### Agent-Specific Configuration
+
+Agent configurations are named `<agent-name>.json`. The Podman runtime provides default configurations for Claude Code and Goose.
+
+**claude.json - Claude Code Agent:**
 
 ```json
 {
   "packages": [],
   "run_commands": [
     "curl -fsSL --proto-redir '-all,https' --tlsv1.3 https://claude.ai/install.sh | bash",
-    "mkdir /home/agent/.config"
+    "mkdir -p /home/agent/.config"
   ],
   "terminal_command": ["claude"]
+}
+```
+
+**goose.json - Goose Agent:**
+
+```json
+{
+  "packages": [],
+  "run_commands": [
+    "cd /tmp && curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash"
+  ],
+  "terminal_command": ["goose"]
 }
 ```
 
@@ -101,6 +118,7 @@ if err != nil {
     return fmt.Errorf("failed to load image config: %w", err)
 }
 
+// Load agent config (use the agent name: "claude", "goose", etc.)
 agentConfig, err := cfg.LoadAgent("claude")
 if err != nil {
     return fmt.Errorf("failed to load agent config: %w", err)
@@ -120,7 +138,9 @@ The config system validates:
 - Default configs are auto-generated on first runtime initialization
 - Existing config files are never overwritten - customizations are preserved
 - Default image config includes common development tools and packages
-- Default Claude config installs Claude Code from the official install script
+- Default agent configs are provided for:
+  - **Claude Code** - Installs from the official install script at `claude.ai/install.sh`
+  - **Goose** - Installs from the official installer at `github.com/block/goose`
 
 ## Containerfile Generation
 
