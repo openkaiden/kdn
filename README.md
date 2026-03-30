@@ -721,13 +721,19 @@ The `agent` user has limited sudo access with no password required (`NOPASSWD`) 
 
 All other sudo commands are explicitly denied for security.
 
-### AI Agent
+### AI Agents
 
-**Claude Code** is installed as the default AI agent using the official installation script from `claude.ai/install.sh`. This provides:
+The Podman runtime includes default configurations for the following AI agents:
 
+**Claude Code** - Installed using the official installation script from `claude.ai/install.sh`:
 - Full Claude Code CLI capabilities
 - Integrated development assistance
 - Access to Claude's latest features
+
+**Goose** - Installed using the official installer from `github.com/block/goose`:
+- AI-powered development agent
+- Task automation and code assistance
+- Configurable development workflows
 
 The agent runs within the container environment and has access to the mounted workspace sources and dependencies.
 
@@ -781,7 +787,8 @@ The Podman runtime is fully configurable through JSON files. When you first use 
 ```text
 $HOME/.kortex-cli/runtimes/podman/config/
 ├── image.json    # Base image configuration
-└── claude.json   # Agent-specific configuration
+├── claude.json   # Claude agent configuration
+└── goose.json    # Goose agent configuration
 ```
 
 Or if using a custom storage directory:
@@ -843,11 +850,11 @@ Controls the container's base image, packages, and sudo permissions.
   - Run before agent-specific commands
   - Useful for additional setup steps
 
-#### Agent Configuration (`claude.json`)
+#### Agent Configuration
 
-Controls agent-specific packages and installation steps.
+Controls agent-specific packages and installation steps. The Podman runtime provides default configurations for Claude Code (`claude.json`) and Goose (`goose.json`).
 
-**Structure:**
+**Structure (claude.json):**
 
 ```json
 {
@@ -858,6 +865,20 @@ Controls agent-specific packages and installation steps.
   ],
   "terminal_command": [
     "claude"
+  ]
+}
+```
+
+**Structure (goose.json):**
+
+```json
+{
+  "packages": [],
+  "run_commands": [
+    "cd /tmp && curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash"
+  ],
+  "terminal_command": [
+    "goose"
   ]
 }
 ```
@@ -887,13 +908,18 @@ Configuration changes take effect when you **register a new workspace with `init
    # Edit base image configuration
    nano ~/.kortex-cli/runtimes/podman/config/image.json
 
-   # Edit agent configuration
+   # Edit agent configuration (use the agent you want)
    nano ~/.kortex-cli/runtimes/podman/config/claude.json
+   # or
+   nano ~/.kortex-cli/runtimes/podman/config/goose.json
    ```
 
 2. Register a new workspace (this creates the Containerfile and builds the image):
    ```bash
+   # Using Claude agent
    kortex-cli init /path/to/project --runtime podman --agent claude
+   # or using Goose agent
+   kortex-cli init /path/to/project --runtime podman --agent goose
    ```
 
 3. Start the workspace:
