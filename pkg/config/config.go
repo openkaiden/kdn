@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 )
@@ -63,6 +64,11 @@ type config struct {
 
 // Compile-time check to ensure config implements Config interface
 var _ Config = (*config)(nil)
+
+// isValidMountPath returns true if the path is absolute or starts with $SOURCES or $HOME.
+func isValidMountPath(p string) bool {
+	return filepath.IsAbs(p) || strings.HasPrefix(p, "$SOURCES") || strings.HasPrefix(p, "$HOME")
+}
 
 // validate checks that the configuration is valid.
 // It ensures that environment variables have exactly one of value or secret defined,
@@ -108,27 +114,20 @@ func (c *config) validate(cfg *workspace.WorkspaceConfiguration) error {
 		}
 	}
 
-	// Validate mount paths
+	// Validate mounts
 	if cfg.Mounts != nil {
-		if cfg.Mounts.Dependencies != nil {
-			for i, dep := range *cfg.Mounts.Dependencies {
-				if dep == "" {
-					return fmt.Errorf("%w: dependency mount at index %d is empty", ErrInvalidConfig, i)
-				}
-				if filepath.IsAbs(dep) {
-					return fmt.Errorf("%w: dependency mount %q (index %d) must be a relative path", ErrInvalidConfig, dep, i)
-				}
+		for i, m := range *cfg.Mounts {
+			if m.Host == "" {
+				return fmt.Errorf("%w: mount at index %d is missing host", ErrInvalidConfig, i)
 			}
-		}
-
-		if cfg.Mounts.Configs != nil {
-			for i, conf := range *cfg.Mounts.Configs {
-				if conf == "" {
-					return fmt.Errorf("%w: config mount at index %d is empty", ErrInvalidConfig, i)
-				}
-				if filepath.IsAbs(conf) {
-					return fmt.Errorf("%w: config mount %q (index %d) must be a relative path", ErrInvalidConfig, conf, i)
-				}
+			if m.Target == "" {
+				return fmt.Errorf("%w: mount at index %d is missing target", ErrInvalidConfig, i)
+			}
+			if !isValidMountPath(m.Host) {
+				return fmt.Errorf("%w: mount host %q (index %d) must be an absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Host, i)
+			}
+			if !isValidMountPath(m.Target) {
+				return fmt.Errorf("%w: mount target %q (index %d) must be an absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Target, i)
 			}
 		}
 	}

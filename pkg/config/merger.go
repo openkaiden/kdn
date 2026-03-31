@@ -21,8 +21,7 @@ import (
 // Merger merges multiple WorkspaceConfiguration objects with proper precedence rules.
 // When merging:
 // - Environment variables: Later configs override earlier ones (by name)
-// - Mount dependencies: Deduplicated (preserves order, no duplicates)
-// - Mount configs: Deduplicated (preserves order, no duplicates)
+// - Mounts: Deduplicated by host+target pair (preserves order, no duplicates)
 type Merger interface {
 	// Merge combines two WorkspaceConfiguration objects.
 	// The override config takes precedence over the base config.
@@ -113,68 +112,25 @@ func mergeEnvironment(base, override *[]workspace.EnvironmentVariable) *[]worksp
 	return &result
 }
 
-// mergeMounts merges mount configurations, deduplicating paths
-func mergeMounts(base, override *workspace.Mounts) *workspace.Mounts {
+// mergeMounts merges mount slices, deduplicating by host+target pair
+func mergeMounts(base, override *[]workspace.Mount) *[]workspace.Mount {
 	if base == nil && override == nil {
 		return nil
 	}
 
-	result := &workspace.Mounts{}
+	type mountKey struct{ host, target string }
+	seen := make(map[mountKey]bool)
+	var result []workspace.Mount
 
-	// Merge dependencies
-	var baseDeps, overrideDeps *[]string
-	if base != nil {
-		baseDeps = base.Dependencies
-	}
-	if override != nil {
-		overrideDeps = override.Dependencies
-	}
-	result.Dependencies = mergeStringSlices(baseDeps, overrideDeps)
-
-	// Merge configs
-	var baseConfigs, overrideConfigs *[]string
-	if base != nil {
-		baseConfigs = base.Configs
-	}
-	if override != nil {
-		overrideConfigs = override.Configs
-	}
-	result.Configs = mergeStringSlices(baseConfigs, overrideConfigs)
-
-	// Return nil if both are empty
-	if result.Dependencies == nil && result.Configs == nil {
-		return nil
-	}
-
-	return result
-}
-
-// mergeStringSlices merges two string slices, deduplicating while preserving order
-func mergeStringSlices(base, override *[]string) *[]string {
-	if base == nil && override == nil {
-		return nil
-	}
-
-	// Use a map to track seen values
-	seen := make(map[string]bool)
-	var result []string
-
-	// Add base values
-	if base != nil {
-		for _, value := range *base {
-			if !seen[value] {
-				seen[value] = true
-				result = append(result, value)
-			}
+	for _, slice := range []*[]workspace.Mount{base, override} {
+		if slice == nil {
+			continue
 		}
-	}
-
-	// Add override values (deduplicating)
-	if override != nil {
-		for _, value := range *override {
-			if !seen[value] {
-				seen[value] = true
-				result = append(result, value)
+		for _, m := range *slice {
+			key := mountKey{m.Host, m.Target}
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, m)
 			}
 		}
 	}
@@ -203,19 +159,9 @@ func copyConfig(cfg *workspace.WorkspaceConfiguration) *workspace.WorkspaceConfi
 
 	// Copy mounts
 	if cfg.Mounts != nil {
-		result.Mounts = &workspace.Mounts{}
-
-		if cfg.Mounts.Dependencies != nil {
-			depsCopy := make([]string, len(*cfg.Mounts.Dependencies))
-			copy(depsCopy, *cfg.Mounts.Dependencies)
-			result.Mounts.Dependencies = &depsCopy
-		}
-
-		if cfg.Mounts.Configs != nil {
-			configsCopy := make([]string, len(*cfg.Mounts.Configs))
-			copy(configsCopy, *cfg.Mounts.Configs)
-			result.Mounts.Configs = &configsCopy
-		}
+		mountsCopy := make([]workspace.Mount, len(*cfg.Mounts))
+		copy(mountsCopy, *cfg.Mounts)
+		result.Mounts = &mountsCopy
 	}
 
 	return result

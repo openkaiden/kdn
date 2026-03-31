@@ -158,10 +158,10 @@ func TestProjectConfigLoader_Load(t *testing.T) {
         "secret": "project-secret"
       }
     ],
-    "mounts": {
-      "dependencies": ["../project-dep"],
-      "configs": [".gitconfig"]
-    }
+    "mounts": [
+      {"host": "$SOURCES/../project-dep", "target": "$SOURCES/../project-dep"},
+      {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig"}
+    ]
   }
 }`
 		if err := os.WriteFile(filepath.Join(configDir, ProjectsConfigFile), []byte(projectsJSON), 0644); err != nil {
@@ -200,12 +200,8 @@ func TestProjectConfigLoader_Load(t *testing.T) {
 			t.Fatal("Expected mounts to be set")
 		}
 
-		if cfg.Mounts.Dependencies == nil || len(*cfg.Mounts.Dependencies) != 1 {
-			t.Error("Expected 1 dependency")
-		}
-
-		if cfg.Mounts.Configs == nil || len(*cfg.Mounts.Configs) != 1 {
-			t.Error("Expected 1 config")
+		if len(*cfg.Mounts) != 2 {
+			t.Errorf("Expected 2 mounts, got %d", len(*cfg.Mounts))
 		}
 	})
 
@@ -221,9 +217,10 @@ func TestProjectConfigLoader_Load(t *testing.T) {
 		// Create projects.json with global config only
 		projectsJSON := `{
   "": {
-    "mounts": {
-      "configs": [".gitconfig", ".ssh"]
-    }
+    "mounts": [
+      {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig"},
+      {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
+    ]
   }
 }`
 		if err := os.WriteFile(filepath.Join(configDir, ProjectsConfigFile), []byte(projectsJSON), 0644); err != nil {
@@ -246,13 +243,12 @@ func TestProjectConfigLoader_Load(t *testing.T) {
 		}
 
 		// Should have global config
-		if cfg.Mounts == nil || cfg.Mounts.Configs == nil {
+		if cfg.Mounts == nil {
 			t.Fatal("Expected global config to be loaded")
 		}
 
-		configs := *cfg.Mounts.Configs
-		if len(configs) != 2 {
-			t.Errorf("Expected 2 configs, got %d", len(configs))
+		if len(*cfg.Mounts) != 2 {
+			t.Errorf("Expected 2 mounts, got %d", len(*cfg.Mounts))
 		}
 	})
 
@@ -277,9 +273,10 @@ func TestProjectConfigLoader_Load(t *testing.T) {
         "value": "global-override"
       }
     ],
-    "mounts": {
-      "configs": [".gitconfig", ".ssh"]
-    }
+    "mounts": [
+      {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig"},
+      {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
+    ]
   },
   "github.com/kortex-hub/kortex-cli": {
     "environment": [
@@ -292,9 +289,9 @@ func TestProjectConfigLoader_Load(t *testing.T) {
         "value": "project-override"
       }
     ],
-    "mounts": {
-      "dependencies": ["../project-dep"]
-    }
+    "mounts": [
+      {"host": "$SOURCES/../project-dep", "target": "$SOURCES/../project-dep"}
+    ]
   }
 }`
 		if err := os.WriteFile(filepath.Join(configDir, ProjectsConfigFile), []byte(projectsJSON), 0644); err != nil {
@@ -348,14 +345,9 @@ func TestProjectConfigLoader_Load(t *testing.T) {
 			t.Fatal("Expected mounts to be set")
 		}
 
-		// Should have configs from global
-		if cfg.Mounts.Configs == nil || len(*cfg.Mounts.Configs) != 2 {
-			t.Errorf("Expected 2 configs from global, got %v", cfg.Mounts.Configs)
-		}
-
-		// Should have dependencies from project
-		if cfg.Mounts.Dependencies == nil || len(*cfg.Mounts.Dependencies) != 1 {
-			t.Errorf("Expected 1 dependency from project, got %v", cfg.Mounts.Dependencies)
+		// Should have 3 mounts: 2 from global + 1 from project
+		if len(*cfg.Mounts) != 3 {
+			t.Errorf("Expected 3 mounts (2 global + 1 project), got %d", len(*cfg.Mounts))
 		}
 	})
 
