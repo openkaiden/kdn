@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -65,9 +66,18 @@ type config struct {
 // Compile-time check to ensure config implements Config interface
 var _ Config = (*config)(nil)
 
-// isValidMountPath returns true if the path is absolute or starts with $SOURCES or $HOME.
-func isValidMountPath(p string) bool {
+// isValidHostPath returns true if the host path is a native OS absolute path or starts with $SOURCES or $HOME.
+// Uses filepath.IsAbs so that only paths valid on the current OS are accepted
+// (e.g. "C:\foo" on Windows, "/foo" on Unix).
+func isValidHostPath(p string) bool {
 	return filepath.IsAbs(p) || strings.HasPrefix(p, "$SOURCES") || strings.HasPrefix(p, "$HOME")
+}
+
+// isValidTargetPath returns true if the container target path is a Unix absolute path or starts with $SOURCES or $HOME.
+// Uses path.IsAbs (not filepath.IsAbs) because container paths are always Unix-style
+// regardless of the host OS.
+func isValidTargetPath(p string) bool {
+	return path.IsAbs(p) || strings.HasPrefix(p, "$SOURCES") || strings.HasPrefix(p, "$HOME")
 }
 
 // validate checks that the configuration is valid.
@@ -123,11 +133,11 @@ func (c *config) validate(cfg *workspace.WorkspaceConfiguration) error {
 			if m.Target == "" {
 				return fmt.Errorf("%w: mount at index %d is missing target", ErrInvalidConfig, i)
 			}
-			if !isValidMountPath(m.Host) {
-				return fmt.Errorf("%w: mount host %q (index %d) must be an absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Host, i)
+			if !isValidHostPath(m.Host) {
+				return fmt.Errorf("%w: mount host %q (index %d) must be a native absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Host, i)
 			}
-			if !isValidMountPath(m.Target) {
-				return fmt.Errorf("%w: mount target %q (index %d) must be an absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Target, i)
+			if !isValidTargetPath(m.Target) {
+				return fmt.Errorf("%w: mount target %q (index %d) must be a Unix absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Target, i)
 			}
 		}
 	}

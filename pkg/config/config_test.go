@@ -83,7 +83,7 @@ func TestConfig_Load(t *testing.T) {
 		}
 
 		// Write a valid workspace.json
-		workspaceJSON := `{
+		workspaceJSON := fmt.Sprintf(`{
   "environment": [
     {
       "name": "DEBUG",
@@ -91,10 +91,10 @@ func TestConfig_Load(t *testing.T) {
     }
   ],
   "mounts": [
-    {"host": "/host/sources", "target": "/workspace/sources"},
+    {"host": "%s", "target": "/workspace/sources"},
     {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
   ]
-}`
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -861,11 +861,11 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		workspaceJSON := `{
+		workspaceJSON := fmt.Sprintf(`{
   "mounts": [
-    {"host": "/host/path", "target": ""}
+    {"host": "%s", "target": ""}
   ]
-}`
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -933,11 +933,11 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		workspaceJSON := `{
+		workspaceJSON := fmt.Sprintf(`{
   "mounts": [
-    {"host": "/host/path", "target": "relative/target"}
+    {"host": "%s", "target": "relative/target"}
   ]
-}`
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
