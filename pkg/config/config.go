@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	workspace "github.com/kortex-hub/kortex-cli-api/workspace-configuration/go"
 )
@@ -63,6 +65,46 @@ type config struct {
 
 // Compile-time check to ensure config implements Config interface
 var _ Config = (*config)(nil)
+
+// isValidHostPath returns true if the host path is a native OS absolute path or starts with $SOURCES or $HOME.
+// Uses filepath.IsAbs so that only paths valid on the current OS are accepted
+// (e.g. "C:\foo" on Windows, "/foo" on Unix).
+func isValidHostPath(p string) bool {
+	return filepath.IsAbs(p) || strings.HasPrefix(p, "$SOURCES") || strings.HasPrefix(p, "$HOME")
+}
+
+// isValidTargetPath returns true if the container target path is a Unix absolute path or starts with $SOURCES or $HOME.
+// Uses path.IsAbs (not filepath.IsAbs) because container paths are always Unix-style
+// regardless of the host OS.
+func isValidTargetPath(p string) bool {
+	return path.IsAbs(p) || strings.HasPrefix(p, "$SOURCES") || strings.HasPrefix(p, "$HOME")
+}
+
+// mountTargetWithinRoot returns true if resolved is equal to root or is a direct descendant.
+func mountTargetWithinRoot(resolved, root string) bool {
+	suffix := strings.TrimPrefix(resolved, root)
+	return suffix != resolved && (suffix == "" || strings.HasPrefix(suffix, "/"))
+}
+
+// checkTargetEscape returns an error if a $SOURCES or $HOME target escapes above its root.
+// $SOURCES targets must stay within /workspace; $HOME targets must not escape above $HOME itself.
+func checkTargetEscape(target string) error {
+	switch {
+	case strings.HasPrefix(target, "$SOURCES"):
+		resolved := path.Join("/workspace/sources", target[len("$SOURCES"):])
+		if !mountTargetWithinRoot(resolved, "/workspace") {
+			return fmt.Errorf("mount target %q escapes above $SOURCES", target)
+		}
+	case strings.HasPrefix(target, "$HOME"):
+		// Use a fixed placeholder home; the check is relative so the actual user name does not matter.
+		const placeholderHome = "/home/user"
+		resolved := path.Join(placeholderHome, target[len("$HOME"):])
+		if !mountTargetWithinRoot(resolved, placeholderHome) {
+			return fmt.Errorf("mount target %q escapes above $HOME", target)
+		}
+	}
+	return nil
+}
 
 // validate checks that the configuration is valid.
 // It ensures that environment variables have exactly one of value or secret defined,
@@ -108,27 +150,23 @@ func (c *config) validate(cfg *workspace.WorkspaceConfiguration) error {
 		}
 	}
 
-	// Validate mount paths
+	// Validate mounts
 	if cfg.Mounts != nil {
-		if cfg.Mounts.Dependencies != nil {
-			for i, dep := range *cfg.Mounts.Dependencies {
-				if dep == "" {
-					return fmt.Errorf("%w: dependency mount at index %d is empty", ErrInvalidConfig, i)
-				}
-				if filepath.IsAbs(dep) {
-					return fmt.Errorf("%w: dependency mount %q (index %d) must be a relative path", ErrInvalidConfig, dep, i)
-				}
+		for i, m := range *cfg.Mounts {
+			if m.Host == "" {
+				return fmt.Errorf("%w: mount at index %d is missing host", ErrInvalidConfig, i)
 			}
-		}
-
-		if cfg.Mounts.Configs != nil {
-			for i, conf := range *cfg.Mounts.Configs {
-				if conf == "" {
-					return fmt.Errorf("%w: config mount at index %d is empty", ErrInvalidConfig, i)
-				}
-				if filepath.IsAbs(conf) {
-					return fmt.Errorf("%w: config mount %q (index %d) must be a relative path", ErrInvalidConfig, conf, i)
-				}
+			if m.Target == "" {
+				return fmt.Errorf("%w: mount at index %d is missing target", ErrInvalidConfig, i)
+			}
+			if !isValidHostPath(m.Host) {
+				return fmt.Errorf("%w: mount host %q (index %d) must be a native absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Host, i)
+			}
+			if !isValidTargetPath(m.Target) {
+				return fmt.Errorf("%w: mount target %q (index %d) must be a Unix absolute path or start with $SOURCES or $HOME", ErrInvalidConfig, m.Target, i)
+			}
+			if err := checkTargetEscape(m.Target); err != nil {
+				return fmt.Errorf("%w: %s (index %d)", ErrInvalidConfig, err, i)
 			}
 		}
 	}

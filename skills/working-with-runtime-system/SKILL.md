@@ -139,6 +139,26 @@ return errors.New("runtime does not support terminal sessions")
 
 This pattern allows runtimes to provide additional capabilities without requiring all runtimes to implement every possible feature.
 
+## Mount Path Requirements
+
+When implementing a new runtime, the container-side path used for `$SOURCES` must **not be a direct child of `/`**.
+
+- `/sources` — **not ok**: `$SOURCES/..` resolves to `/`, which means the containment check in `pkg/config/config.go` would accept any path as a sibling mount, including escaping paths like `/etc`
+- `/workspace/sources` — **ok**: `$SOURCES/..` resolves to `/workspace`, a safe shared root for sibling repos
+- `/mnt/sources` — **ok**
+- `/mnt/sub/sources` — **ok**
+
+Users can mount sibling source directories using `$SOURCES/../sibling`. The containment check validates that `$SOURCES`-based targets stay within the **parent** of `$SOURCES`. If `$SOURCES` is mounted at a root-level directory, that parent is `/` and the check provides no protection.
+
+There is no specific depth requirement for `$HOME`.
+
+**Podman runtime paths (reference):**
+
+```go
+var containerWorkspaceSources = path.Join("/workspace", "sources") // parent is /workspace ✓
+var containerHome = path.Join("/home", constants.ContainerUser)    // no depth constraint
+```
+
 ## Adding a New Runtime
 
 Use the `/add-runtime` skill which provides step-by-step instructions for creating a new runtime implementation. The `fake` runtime in `pkg/runtime/fake/` serves as a reference implementation.

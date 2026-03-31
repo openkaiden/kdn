@@ -83,18 +83,18 @@ func TestConfig_Load(t *testing.T) {
 		}
 
 		// Write a valid workspace.json
-		workspaceJSON := `{
+		workspaceJSON := fmt.Sprintf(`{
   "environment": [
     {
       "name": "DEBUG",
       "value": "true"
     }
   ],
-  "mounts": {
-    "dependencies": ["../main"],
-    "configs": [".ssh"]
-  }
-}`
+  "mounts": [
+    {"host": "%s", "target": "/workspace/sources"},
+    {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
+  ]
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -122,11 +122,8 @@ func TestConfig_Load(t *testing.T) {
 		if workspaceCfg.Mounts == nil {
 			t.Fatal("Expected mounts to be non-nil")
 		}
-		if workspaceCfg.Mounts.Dependencies == nil || len(*workspaceCfg.Mounts.Dependencies) != 1 {
-			t.Errorf("Expected 1 dependency mount")
-		}
-		if workspaceCfg.Mounts.Configs == nil || len(*workspaceCfg.Mounts.Configs) != 1 {
-			t.Errorf("Expected 1 config mount")
+		if len(*workspaceCfg.Mounts) != 2 {
+			t.Errorf("Expected 2 mounts, got %d", len(*workspaceCfg.Mounts))
 		}
 	})
 
@@ -817,23 +814,21 @@ func TestConfig_Load(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects config with empty dependency path", func(t *testing.T) {
+	t.Run("rejects mount with empty host", func(t *testing.T) {
 		t.Parallel()
 
 		tempDir := t.TempDir()
 		configDir := filepath.Join(tempDir, ".kortex")
 
-		// Create the config directory
 		err := os.MkdirAll(configDir, 0755)
 		if err != nil {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		// Write workspace.json with empty dependency path
 		workspaceJSON := `{
-  "mounts": {
-    "dependencies": [""]
-  }
+  "mounts": [
+    {"host": "", "target": "/workspace/path"}
+  ]
 }`
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
@@ -846,38 +841,31 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("NewConfig() failed: %v", err)
 		}
 
-		// Load should fail with validation error
 		_, err = cfg.Load()
 		if err == nil {
-			t.Fatal("Expected error for empty dependency path, got nil")
+			t.Fatal("Expected error for empty mount host, got nil")
 		}
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("Expected ErrInvalidConfig, got %v", err)
 		}
 	})
 
-	t.Run("rejects config with absolute dependency path", func(t *testing.T) {
+	t.Run("rejects mount with empty target", func(t *testing.T) {
 		t.Parallel()
 
 		tempDir := t.TempDir()
 		configDir := filepath.Join(tempDir, ".kortex")
 
-		// Create the config directory
 		err := os.MkdirAll(configDir, 0755)
 		if err != nil {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		// Create a platform-appropriate absolute path
-		// Use tempDir which is already an absolute path
-		absolutePath := tempDir
-
-		// Write workspace.json with absolute dependency path
 		workspaceJSON := fmt.Sprintf(`{
-  "mounts": {
-    "dependencies": ["%s"]
-  }
-}`, filepath.ToSlash(absolutePath))
+  "mounts": [
+    {"host": "%s", "target": ""}
+  ]
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -889,33 +877,30 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("NewConfig() failed: %v", err)
 		}
 
-		// Load should fail with validation error
 		_, err = cfg.Load()
 		if err == nil {
-			t.Fatal("Expected error for absolute dependency path, got nil")
+			t.Fatal("Expected error for empty mount target, got nil")
 		}
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("Expected ErrInvalidConfig, got %v", err)
 		}
 	})
 
-	t.Run("rejects config with empty config path", func(t *testing.T) {
+	t.Run("rejects mount with relative host path", func(t *testing.T) {
 		t.Parallel()
 
 		tempDir := t.TempDir()
 		configDir := filepath.Join(tempDir, ".kortex")
 
-		// Create the config directory
 		err := os.MkdirAll(configDir, 0755)
 		if err != nil {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		// Write workspace.json with empty config path
 		workspaceJSON := `{
-  "mounts": {
-    "configs": [""]
-  }
+  "mounts": [
+    {"host": "../relative/path", "target": "/workspace/path"}
+  ]
 }`
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
@@ -928,38 +913,31 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("NewConfig() failed: %v", err)
 		}
 
-		// Load should fail with validation error
 		_, err = cfg.Load()
 		if err == nil {
-			t.Fatal("Expected error for empty config path, got nil")
+			t.Fatal("Expected error for relative mount host path, got nil")
 		}
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("Expected ErrInvalidConfig, got %v", err)
 		}
 	})
 
-	t.Run("rejects config with absolute config path", func(t *testing.T) {
+	t.Run("rejects mount with relative target path", func(t *testing.T) {
 		t.Parallel()
 
 		tempDir := t.TempDir()
 		configDir := filepath.Join(tempDir, ".kortex")
 
-		// Create the config directory
 		err := os.MkdirAll(configDir, 0755)
 		if err != nil {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		// Create a platform-appropriate absolute path
-		// Use tempDir which is already an absolute path
-		absolutePath := tempDir
-
-		// Write workspace.json with absolute config path
 		workspaceJSON := fmt.Sprintf(`{
-  "mounts": {
-    "configs": ["%s"]
-  }
-}`, filepath.ToSlash(absolutePath))
+  "mounts": [
+    {"host": "%s", "target": "relative/target"}
+  ]
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -971,35 +949,31 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("NewConfig() failed: %v", err)
 		}
 
-		// Load should fail with validation error
 		_, err = cfg.Load()
 		if err == nil {
-			t.Fatal("Expected error for absolute config path, got nil")
+			t.Fatal("Expected error for relative mount target path, got nil")
 		}
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("Expected ErrInvalidConfig, got %v", err)
 		}
 	})
 
-	t.Run("accepts valid relative mount paths", func(t *testing.T) {
+	t.Run("rejects $SOURCES target that escapes above /workspace", func(t *testing.T) {
 		t.Parallel()
 
 		tempDir := t.TempDir()
 		configDir := filepath.Join(tempDir, ".kortex")
 
-		// Create the config directory
 		err := os.MkdirAll(configDir, 0755)
 		if err != nil {
 			t.Fatalf("os.MkdirAll() failed: %v", err)
 		}
 
-		// Write workspace.json with valid relative paths
-		workspaceJSON := `{
-  "mounts": {
-    "dependencies": ["../main", "../../lib"],
-    "configs": [".ssh", ".config/gh"]
-  }
-}`
+		workspaceJSON := fmt.Sprintf(`{
+  "mounts": [
+    {"host": "%s", "target": "$SOURCES/../../etc"}
+  ]
+}`, filepath.ToSlash(tempDir))
 		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
 		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
 		if err != nil {
@@ -1011,7 +985,80 @@ func TestConfig_Load(t *testing.T) {
 			t.Fatalf("NewConfig() failed: %v", err)
 		}
 
-		// Load should succeed
+		_, err = cfg.Load()
+		if err == nil {
+			t.Fatal("Expected error for escaping $SOURCES target, got nil")
+		}
+		if !errors.Is(err, ErrInvalidConfig) {
+			t.Errorf("Expected ErrInvalidConfig, got %v", err)
+		}
+	})
+
+	t.Run("rejects $HOME target that escapes above $HOME", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		configDir := filepath.Join(tempDir, ".kortex")
+
+		err := os.MkdirAll(configDir, 0755)
+		if err != nil {
+			t.Fatalf("os.MkdirAll() failed: %v", err)
+		}
+
+		workspaceJSON := fmt.Sprintf(`{
+  "mounts": [
+    {"host": "%s", "target": "$HOME/../other-user"}
+  ]
+}`, filepath.ToSlash(tempDir))
+		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
+		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
+		if err != nil {
+			t.Fatalf("os.WriteFile() failed: %v", err)
+		}
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		_, err = cfg.Load()
+		if err == nil {
+			t.Fatal("Expected error for escaping $HOME target, got nil")
+		}
+		if !errors.Is(err, ErrInvalidConfig) {
+			t.Errorf("Expected ErrInvalidConfig, got %v", err)
+		}
+	})
+
+	t.Run("accepts valid mount paths", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		configDir := filepath.Join(tempDir, ".kortex")
+
+		err := os.MkdirAll(configDir, 0755)
+		if err != nil {
+			t.Fatalf("os.MkdirAll() failed: %v", err)
+		}
+
+		workspaceJSON := fmt.Sprintf(`{
+  "mounts": [
+    {"host": "%s", "target": "/workspace/abs"},
+    {"host": "$SOURCES/../other", "target": "$SOURCES/other"},
+    {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig"}
+  ]
+}`, filepath.ToSlash(tempDir))
+		workspacePath := filepath.Join(configDir, WorkspaceConfigFile)
+		err = os.WriteFile(workspacePath, []byte(workspaceJSON), 0644)
+		if err != nil {
+			t.Fatalf("os.WriteFile() failed: %v", err)
+		}
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
 		workspaceCfg, err := cfg.Load()
 		if err != nil {
 			t.Fatalf("Load() failed: %v", err)
@@ -1020,11 +1067,8 @@ func TestConfig_Load(t *testing.T) {
 		if workspaceCfg.Mounts == nil {
 			t.Fatal("Expected mounts to be non-nil")
 		}
-		if workspaceCfg.Mounts.Dependencies == nil || len(*workspaceCfg.Mounts.Dependencies) != 2 {
-			t.Errorf("Expected 2 dependency mounts")
-		}
-		if workspaceCfg.Mounts.Configs == nil || len(*workspaceCfg.Mounts.Configs) != 2 {
-			t.Errorf("Expected 2 config mounts")
+		if len(*workspaceCfg.Mounts) != 3 {
+			t.Errorf("Expected 3 mounts, got %d", len(*workspaceCfg.Mounts))
 		}
 	})
 }

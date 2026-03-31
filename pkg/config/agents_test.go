@@ -158,10 +158,10 @@ func TestAgentConfigLoader_Load(t *testing.T) {
         "secret": "my-secret"
       }
     ],
-    "mounts": {
-      "dependencies": ["../shared"],
-      "configs": [".claude"]
-    }
+    "mounts": [
+      {"host": "$SOURCES/../shared", "target": "$SOURCES/../shared"},
+      {"host": "$HOME/.claude", "target": "$HOME/.claude"}
+    ]
   }
 }`
 		if err := os.WriteFile(filepath.Join(configDir, AgentsConfigFile), []byte(agentsJSON), 0644); err != nil {
@@ -200,12 +200,8 @@ func TestAgentConfigLoader_Load(t *testing.T) {
 			t.Fatal("Expected mounts to be set")
 		}
 
-		if cfg.Mounts.Dependencies == nil || len(*cfg.Mounts.Dependencies) != 1 {
-			t.Error("Expected 1 dependency")
-		}
-
-		if cfg.Mounts.Configs == nil || len(*cfg.Mounts.Configs) != 1 {
-			t.Error("Expected 1 config")
+		if len(*cfg.Mounts) != 2 {
+			t.Errorf("Expected 2 mounts, got %d", len(*cfg.Mounts))
 		}
 	})
 

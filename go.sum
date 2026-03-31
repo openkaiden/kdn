@@ -5,6 +5,8 @@ github.com/kortex-hub/kortex-cli-api/cli/go v0.0.0-20260326121446-aa3f0c37fc1e h
 github.com/kortex-hub/kortex-cli-api/cli/go v0.0.0-20260326121446-aa3f0c37fc1e/go.mod h1:jWKudiw26CIjuOsROQ80FOuuk2m2/5BVkuATpmD5xQQ=
 github.com/kortex-hub/kortex-cli-api/workspace-configuration/go v0.0.0-20260319072318-abc0e6182754 h1:Igfvw+SfpmqApUWA4uBhMq4vmhuinJLAGk9YMtSdTr8=
 github.com/kortex-hub/kortex-cli-api/workspace-configuration/go v0.0.0-20260319072318-abc0e6182754/go.mod h1:N4tLoDdBbAPYJ9ALLfYbqYScydJb546JgKQ6EjHswLw=
+github.com/kortex-hub/kortex-cli-api/workspace-configuration/go v0.0.0-20260331070743-a7c5f045c21c h1:kFz1ImgIiAJEmliiuASCJLKjiDIGFowLh6Fdd4hjFM8=
+github.com/kortex-hub/kortex-cli-api/workspace-configuration/go v0.0.0-20260331070743-a7c5f045c21c/go.mod h1:N4tLoDdBbAPYJ9ALLfYbqYScydJb546JgKQ6EjHswLw=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=

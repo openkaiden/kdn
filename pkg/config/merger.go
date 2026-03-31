@@ -21,8 +21,7 @@ import (
 // Merger merges multiple WorkspaceConfiguration objects with proper precedence rules.
 // When merging:
 // - Environment variables: Later configs override earlier ones (by name)
-// - Mount dependencies: Deduplicated (preserves order, no duplicates)
-// - Mount configs: Deduplicated (preserves order, no duplicates)
+// - Mounts: Deduplicated by host+target pair (preserves order, no duplicates)
 type Merger interface {
 	// Merge combines two WorkspaceConfiguration objects.
 	// The override config takes precedence over the base config.
@@ -113,68 +112,40 @@ func mergeEnvironment(base, override *[]workspace.EnvironmentVariable) *[]worksp
 	return &result
 }
 
-// mergeMounts merges mount configurations, deduplicating paths
-func mergeMounts(base, override *workspace.Mounts) *workspace.Mounts {
-	if base == nil && override == nil {
-		return nil
+// deepCopyMount returns a deep copy of m with the Ro pointer independent from the original.
+func deepCopyMount(m workspace.Mount) workspace.Mount {
+	if m.Ro != nil {
+		roCopy := *m.Ro
+		m.Ro = &roCopy
 	}
-
-	result := &workspace.Mounts{}
-
-	// Merge dependencies
-	var baseDeps, overrideDeps *[]string
-	if base != nil {
-		baseDeps = base.Dependencies
-	}
-	if override != nil {
-		overrideDeps = override.Dependencies
-	}
-	result.Dependencies = mergeStringSlices(baseDeps, overrideDeps)
-
-	// Merge configs
-	var baseConfigs, overrideConfigs *[]string
-	if base != nil {
-		baseConfigs = base.Configs
-	}
-	if override != nil {
-		overrideConfigs = override.Configs
-	}
-	result.Configs = mergeStringSlices(baseConfigs, overrideConfigs)
-
-	// Return nil if both are empty
-	if result.Dependencies == nil && result.Configs == nil {
-		return nil
-	}
-
-	return result
+	return m
 }
 
-// mergeStringSlices merges two string slices, deduplicating while preserving order
-func mergeStringSlices(base, override *[]string) *[]string {
+// mergeMounts merges mount slices, deduplicating by host+target pair.
+// Mounts from base are appended first; if override contains a mount with the same
+// host+target key, it replaces the base entry in-place (preserving position) so that
+// per-mount fields such as Ro are correctly overridden.
+func mergeMounts(base, override *[]workspace.Mount) *[]workspace.Mount {
 	if base == nil && override == nil {
 		return nil
 	}
 
-	// Use a map to track seen values
-	seen := make(map[string]bool)
-	var result []string
+	type mountKey struct{ host, target string }
+	seen := make(map[mountKey]int) // value is index in result
+	var result []workspace.Mount
 
-	// Add base values
-	if base != nil {
-		for _, value := range *base {
-			if !seen[value] {
-				seen[value] = true
-				result = append(result, value)
-			}
+	for _, slice := range []*[]workspace.Mount{base, override} {
+		if slice == nil {
+			continue
 		}
-	}
-
-	// Add override values (deduplicating)
-	if override != nil {
-		for _, value := range *override {
-			if !seen[value] {
-				seen[value] = true
-				result = append(result, value)
+		isOverride := slice == override
+		for _, m := range *slice {
+			key := mountKey{m.Host, m.Target}
+			if idx, exists := seen[key]; !exists {
+				seen[key] = len(result)
+				result = append(result, deepCopyMount(m))
+			} else if isOverride {
+				result[idx] = deepCopyMount(m)
 			}
 		}
 	}
@@ -201,21 +172,13 @@ func copyConfig(cfg *workspace.WorkspaceConfiguration) *workspace.WorkspaceConfi
 		result.Environment = &envCopy
 	}
 
-	// Copy mounts
+	// Copy mounts (deep copy each entry so Ro pointers are independent)
 	if cfg.Mounts != nil {
-		result.Mounts = &workspace.Mounts{}
-
-		if cfg.Mounts.Dependencies != nil {
-			depsCopy := make([]string, len(*cfg.Mounts.Dependencies))
-			copy(depsCopy, *cfg.Mounts.Dependencies)
-			result.Mounts.Dependencies = &depsCopy
+		mountsCopy := make([]workspace.Mount, len(*cfg.Mounts))
+		for i, m := range *cfg.Mounts {
+			mountsCopy[i] = deepCopyMount(m)
 		}
-
-		if cfg.Mounts.Configs != nil {
-			configsCopy := make([]string, len(*cfg.Mounts.Configs))
-			copy(configsCopy, *cfg.Mounts.Configs)
-			result.Mounts.Configs = &configsCopy
-		}
+		result.Mounts = &mountsCopy
 	}
 
 	return result

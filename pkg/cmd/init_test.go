@@ -21,6 +21,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -653,18 +654,18 @@ func TestInitCmd_PreRun(t *testing.T) {
 			t.Fatalf("Failed to create config directory: %v", err)
 		}
 
-		workspaceJSON := `{
+		workspaceJSON := fmt.Sprintf(`{
   "environment": [
     {
       "name": "DEBUG",
       "value": "true"
     }
   ],
-  "mounts": {
-    "dependencies": ["../main"],
-    "configs": [".ssh"]
-  }
-}`
+  "mounts": [
+    {"host": "%s", "target": "/workspace/sources"},
+    {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
+  ]
+}`, filepath.ToSlash(tempDir))
 		err = os.WriteFile(filepath.Join(configDir, "workspace.json"), []byte(workspaceJSON), 0644)
 		if err != nil {
 			t.Fatalf("Failed to write workspace.json: %v", err)
@@ -1815,13 +1816,13 @@ func TestInitCmd_MultiLevelConfig(t *testing.T) {
 			t.Fatalf("Failed to create config dir: %v", err)
 		}
 
-		projectsJSON := `{
+		projectsJSON := fmt.Sprintf(`{
   "": {
-    "mounts": {
-      "configs": [".gitconfig"]
-    }
+    "mounts": [
+      {"host": "%s", "target": "/workspace/sources"}
+    ]
   }
-}`
+}`, filepath.ToSlash(storageDir))
 		if err := os.WriteFile(filepath.Join(configDir, "projects.json"), []byte(projectsJSON), 0644); err != nil {
 			t.Fatalf("Failed to write projects.json: %v", err)
 		}

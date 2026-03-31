@@ -280,113 +280,126 @@ func TestMerger_Merge_Mounts(t *testing.T) {
 
 	merger := NewMerger()
 
-	t.Run("dependencies no overlap", func(t *testing.T) {
+	t.Run("no overlap", func(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../dep1", "../dep2"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep1", Target: "/workspace/dep1"},
+				{Host: "/host/dep2", Target: "/workspace/dep2"},
 			},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../dep3", "../dep4"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep3", Target: "/workspace/dep3"},
+				{Host: "/host/dep4", Target: "/workspace/dep4"},
 			},
 		}
 
 		result := merger.Merge(base, override)
 
-		if result.Mounts == nil || result.Mounts.Dependencies == nil {
-			t.Fatal("Expected dependencies to be set")
+		if result.Mounts == nil {
+			t.Fatal("Expected mounts to be set")
 		}
 
-		deps := *result.Mounts.Dependencies
-		if len(deps) != 4 {
-			t.Errorf("Expected 4 dependencies, got %d", len(deps))
+		mounts := *result.Mounts
+		if len(mounts) != 4 {
+			t.Errorf("Expected 4 mounts, got %d", len(mounts))
 		}
 	})
 
-	t.Run("dependencies deduplication", func(t *testing.T) {
+	t.Run("deduplication", func(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../dep1", "../dep2"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep1", Target: "/workspace/dep1"},
+				{Host: "/host/dep2", Target: "/workspace/dep2"},
 			},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../dep2", "../dep3"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep2", Target: "/workspace/dep2"},
+				{Host: "/host/dep3", Target: "/workspace/dep3"},
 			},
 		}
 
 		result := merger.Merge(base, override)
 
-		deps := *result.Mounts.Dependencies
-		if len(deps) != 3 {
-			t.Errorf("Expected 3 unique dependencies, got %d", len(deps))
+		mounts := *result.Mounts
+		if len(mounts) != 3 {
+			t.Errorf("Expected 3 unique mounts, got %d", len(mounts))
 		}
 
 		// Check order: dep1, dep2 (from base), dep3 (new from override)
-		if deps[0] != "../dep1" || deps[1] != "../dep2" || deps[2] != "../dep3" {
-			t.Errorf("Unexpected order: %v", deps)
+		if mounts[0].Host != "/host/dep1" || mounts[1].Host != "/host/dep2" || mounts[2].Host != "/host/dep3" {
+			t.Errorf("Unexpected order: %v", mounts)
 		}
 	})
 
-	t.Run("configs no overlap", func(t *testing.T) {
+	t.Run("override updates ro for same host+target", func(t *testing.T) {
 		t.Parallel()
 
+		roTrue := true
 		base := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{".gitconfig", ".ssh"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep1", Target: "/workspace/dep1"},
+				{Host: "/host/dep2", Target: "/workspace/dep2"},
 			},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{".kube", ".docker"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep2", Target: "/workspace/dep2", Ro: &roTrue},
 			},
 		}
 
 		result := merger.Merge(base, override)
 
-		if result.Mounts == nil || result.Mounts.Configs == nil {
-			t.Fatal("Expected configs to be set")
+		mounts := *result.Mounts
+		if len(mounts) != 2 {
+			t.Fatalf("Expected 2 mounts, got %d", len(mounts))
 		}
 
-		configs := *result.Mounts.Configs
-		if len(configs) != 4 {
-			t.Errorf("Expected 4 configs, got %d", len(configs))
+		// dep2 must stay at index 1 (base position) but have ro=true from override
+		if mounts[1].Host != "/host/dep2" {
+			t.Errorf("Expected dep2 at index 1, got %s", mounts[1].Host)
+		}
+		if mounts[1].Ro == nil || !*mounts[1].Ro {
+			t.Error("Expected ro=true on dep2 from override")
+		}
+
+		// Verify the original base is not mutated
+		baseMounts := *base.Mounts
+		if baseMounts[1].Ro != nil {
+			t.Error("Expected base dep2 Ro to remain nil (no mutation)")
 		}
 	})
 
-	t.Run("configs deduplication", func(t *testing.T) {
+	t.Run("ro pointer is not shared after merge", func(t *testing.T) {
 		t.Parallel()
 
+		roTrue := true
 		base := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{".gitconfig", ".ssh"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/dep1", Target: "/workspace/dep1", Ro: &roTrue},
 			},
 		}
 
-		override := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{".ssh", ".kube"},
-			},
+		result := merger.Merge(base, nil)
+
+		mounts := *result.Mounts
+		if mounts[0].Ro == nil || !*mounts[0].Ro {
+			t.Fatal("Expected ro=true in copy")
 		}
 
-		result := merger.Merge(base, override)
-
-		configs := *result.Mounts.Configs
-		if len(configs) != 3 {
-			t.Errorf("Expected 3 unique configs, got %d", len(configs))
-		}
-
-		// Check order: .gitconfig, .ssh (from base), .kube (new from override)
-		if configs[0] != ".gitconfig" || configs[1] != ".ssh" || configs[2] != ".kube" {
-			t.Errorf("Unexpected order: %v", configs)
+		// Mutate the copy — base must not be affected
+		roFalse := false
+		mounts[0].Ro = &roFalse
+		if !*(*base.Mounts)[0].Ro {
+			t.Error("Base Ro was mutated through shared pointer")
 		}
 	})
 
@@ -394,15 +407,11 @@ func TestMerger_Merge_Mounts(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{},
-			},
+			Mounts: &[]workspace.Mount{},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{},
-			},
+			Mounts: &[]workspace.Mount{},
 		}
 
 		result := merger.Merge(base, override)
@@ -427,8 +436,8 @@ func TestMerger_Merge_MultiLevel(t *testing.T) {
 				{Name: "LEVEL", Value: strPtr("workspace")},
 				{Name: "WORKSPACE_VAR", Value: strPtr("ws-value")},
 			},
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../workspace-dep"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/workspace-dep", Target: "/workspace/workspace-dep"},
 			},
 		}
 
@@ -438,9 +447,9 @@ func TestMerger_Merge_MultiLevel(t *testing.T) {
 				{Name: "LEVEL", Value: strPtr("project")},
 				{Name: "PROJECT_VAR", Value: strPtr("proj-value")},
 			},
-			Mounts: &workspace.Mounts{
-				Dependencies: &[]string{"../project-dep"},
-				Configs:      &[]string{".gitconfig"},
+			Mounts: &[]workspace.Mount{
+				{Host: "/host/project-dep", Target: "/workspace/project-dep"},
+				{Host: "$HOME/.gitconfig", Target: "/workspace/.gitconfig"},
 			},
 		}
 
@@ -450,8 +459,8 @@ func TestMerger_Merge_MultiLevel(t *testing.T) {
 				{Name: "LEVEL", Value: strPtr("agent")},
 				{Name: "AGENT_VAR", Value: strPtr("agent-value")},
 			},
-			Mounts: &workspace.Mounts{
-				Configs: &[]string{".claude"},
+			Mounts: &[]workspace.Mount{
+				{Host: "$HOME/.claude", Target: "/workspace/.claude"},
 			},
 		}
 
@@ -488,19 +497,14 @@ func TestMerger_Merge_MultiLevel(t *testing.T) {
 			t.Error("AGENT_VAR should be added")
 		}
 
-		// Check mounts
+		// Check mounts: 1 (workspace) + 2 (project) + 1 (agent) = 4 unique mounts
 		if result.Mounts == nil {
 			t.Fatal("Expected mounts to be set")
 		}
 
-		deps := *result.Mounts.Dependencies
-		if len(deps) != 2 {
-			t.Errorf("Expected 2 dependencies, got %d", len(deps))
-		}
-
-		configs := *result.Mounts.Configs
-		if len(configs) != 2 {
-			t.Errorf("Expected 2 configs, got %d", len(configs))
+		mounts := *result.Mounts
+		if len(mounts) != 4 {
+			t.Errorf("Expected 4 mounts, got %d", len(mounts))
 		}
 	})
 }
