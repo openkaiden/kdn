@@ -10,8 +10,7 @@ The config system manages **workspace configuration** for injecting environment 
 
 **What this config system controls:**
 - Environment variables to inject into workspace containers/VMs
-- Additional source directories to mount (dependencies)
-- Configuration directories to mount from `$HOME` (e.g., `.ssh`, `.gitconfig`)
+- Additional directories to mount, with explicit host and container paths
 
 **What this does NOT control:**
 - Runtime-specific settings (e.g., Podman container image, packages to install)
@@ -72,10 +71,12 @@ The `workspace.json` file controls what gets injected into the workspace:
       "secret": "github-token"
     }
   ],
-  "mounts": {
-    "dependencies": ["../main"],
-    "configs": [".ssh", ".gitconfig"]
-  }
+  "mounts": [
+    {"host": "$SOURCES/../main", "target": "$SOURCES/../main"},
+    {"host": "$HOME/.ssh", "target": "$HOME/.ssh", "ro": true},
+    {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig", "ro": true},
+    {"host": "/absolute/path/to/data", "target": "/workspace/data", "ro": true}
+  ]
 }
 ```
 
@@ -94,14 +95,13 @@ kortex-cli init /path/to/workspace --workspace-configuration /path/to/config-dir
   - `name` - Variable name (must be valid Unix environment variable name)
   - `value` - Hardcoded value (mutually exclusive with `secret`, empty strings allowed)
   - `secret` - Secret reference (mutually exclusive with `value`, cannot be empty)
-- `mounts.dependencies` - Additional source directories to mount into workspace (optional)
-  - Paths must be relative (not absolute)
-  - Paths cannot be empty
-  - Relative to workspace sources directory
-- `mounts.configs` - Configuration directories from `$HOME` to mount into workspace (optional)
-  - Paths must be relative (not absolute)
-  - Paths cannot be empty
-  - Relative to `$HOME`
+- `mounts` - List of directories to mount into the workspace (optional)
+  - Each entry is an object with `host`, `target`, and optional `ro` fields
+  - `host` - Path on the host filesystem (absolute path, or starts with `$SOURCES` or `$HOME`)
+  - `target` - Path inside the container (absolute path, or starts with `$SOURCES` or `$HOME`)
+  - `ro` - If `true`, mount is read-only (optional, defaults to read-write)
+  - `$SOURCES` expands to the workspace sources directory on host, `/workspace/sources` in container
+  - `$HOME` expands to the user's home directory on host, `/home/<container-user>` in container
 
 ### Agent Configuration (`agents.json`)
 
@@ -116,9 +116,9 @@ Agent-specific overrides for environment variables and mounts:
         "value": "true"
       }
     ],
-    "mounts": {
-      "configs": [".claude-config"]
-    }
+    "mounts": [
+      {"host": "$HOME/.claude-config", "target": "$HOME/.claude-config", "ro": true}
+    ]
   },
   "goose": {
     "environment": [
@@ -138,9 +138,10 @@ Project-specific and global settings for environment variables and mounts:
 ```json
 {
   "": {
-    "mounts": {
-      "configs": [".gitconfig", ".ssh"]
-    }
+    "mounts": [
+      {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig", "ro": true},
+      {"host": "$HOME/.ssh", "target": "$HOME/.ssh", "ro": true}
+    ]
   },
   "github.com/kortex-hub/kortex-cli": {
     "environment": [
@@ -149,9 +150,9 @@ Project-specific and global settings for environment variables and mounts:
         "value": "project-value"
       }
     ],
-    "mounts": {
-      "dependencies": ["../kortex-common"]
-    }
+    "mounts": [
+      {"host": "$SOURCES/../kortex-common", "target": "$SOURCES/../kortex-common"}
+    ]
   },
   "/home/user/my/project": {
     "environment": [
@@ -205,11 +206,8 @@ if workspaceCfg.Environment != nil {
 }
 
 if workspaceCfg.Mounts != nil {
-    if workspaceCfg.Mounts.Dependencies != nil {
-        // Use dependency paths
-    }
-    if workspaceCfg.Mounts.Configs != nil {
-        // Use config paths
+    for _, m := range *workspaceCfg.Mounts {
+        // Use m.Host, m.Target, m.Ro
     }
 }
 ```
@@ -240,8 +238,7 @@ The Manager's `Add()` method:
 
 - **Environment variables**: Later configs override earlier ones by name
   - If the same variable appears in multiple configs, the one from the higher-precedence config wins
-- **Mount dependencies**: Deduplicated list (preserves order, removes duplicates)
-- **Mount configs**: Deduplicated list (preserves order, removes duplicates)
+- **Mounts**: Deduplicated by `host`+`target` pair (preserves order, removes duplicates)
 
 **Example Merge Flow:**
 
@@ -286,10 +283,11 @@ The `Load()` method automatically validates the configuration and returns `ErrIn
 
 ### Mount Paths
 
-- Dependency paths cannot be empty
-- Dependency paths must be relative (not absolute)
-- Config paths cannot be empty
-- Config paths must be relative (not absolute)
+- Each mount must have a non-empty `host` and `target`
+- Both `host` and `target` must be absolute paths OR start with `$SOURCES` or `$HOME`
+- Relative paths (e.g., `../foo`) are not allowed
+- `$SOURCES`-based container targets must not escape above `/workspace`
+- `$HOME`-based container targets must not escape above `/home/<container-user>`
 
 ## Error Handling
 
