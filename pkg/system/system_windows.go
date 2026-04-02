@@ -22,34 +22,48 @@ import (
 	"strings"
 )
 
-// Getuid returns the numeric user ID of the caller.
-// On Windows, this queries WSL2 for the actual UID and falls back to 1000 if unavailable.
-func (s *systemImpl) Getuid() int {
-	// Try to get UID from WSL2
-	cmd := exec.Command("wsl", "id", "-u")
+// podmanMachineUser returns the SSH username configured for the podman machine.
+func podmanMachineUser() string {
+	cmd := exec.Command("podman", "machine", "inspect", "--format", "{{ .SSHConfig.RemoteUsername }}")
 	output, err := cmd.Output()
-	if err == nil {
-		if uid, err := strconv.Atoi(strings.TrimSpace(string(output))); err == nil && uid != 0 {
-			return uid
-		}
+	if err != nil {
+		return ""
 	}
-	// Fallback to 1000 (common Linux container default)
-	// Also used when WSL returns 0 (root), which conflicts with container base image
+	return strings.TrimSpace(string(output))
+}
+
+// podmanMachineID runs "id" inside the podman machine via SSH and returns the result.
+func podmanMachineID(flag string) (int, bool) {
+	user := podmanMachineUser()
+	if user == "" {
+		return 0, false
+	}
+	cmd := exec.Command("podman", "machine", "ssh", "--username", user, "id", flag)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, false
+	}
+	id, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return id, true
+}
+
+// Getuid returns the numeric user ID of the caller.
+// On Windows, this queries the podman machine for the actual UID and falls back to 1000 if unavailable.
+func (s *systemImpl) Getuid() int {
+	if uid, ok := podmanMachineID("-u"); ok {
+		return uid
+	}
 	return 1000
 }
 
 // Getgid returns the numeric group ID of the caller.
-// On Windows, this queries WSL2 for the actual GID and falls back to 1000 if unavailable.
+// On Windows, this queries the podman machine for the actual GID and falls back to 1000 if unavailable.
 func (s *systemImpl) Getgid() int {
-	// Try to get GID from WSL2
-	cmd := exec.Command("wsl", "id", "-g")
-	output, err := cmd.Output()
-	if err == nil {
-		if gid, err := strconv.Atoi(strings.TrimSpace(string(output))); err == nil && gid != 0 {
-			return gid
-		}
+	if gid, ok := podmanMachineID("-g"); ok {
+		return gid
 	}
-	// Fallback to 1000 (common Linux container default)
-	// Also used when WSL returns 0 (root), which conflicts with container base image
 	return 1000
 }
