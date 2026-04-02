@@ -296,13 +296,13 @@ The `terminal` command provides an interactive session with a running workspace 
 
 ```go
 type workspaceTerminalCmd struct {
-    manager instances.Manager
-    id      string
-    command []string
+    manager  instances.Manager
+    nameOrID string
+    command  []string
 }
 
 func (w *workspaceTerminalCmd) preRun(cmd *cobra.Command, args []string) error {
-    w.id = args[0]
+    w.nameOrID = args[0]
 
     // Extract command from args[1:] if provided
     if len(args) > 1 {
@@ -337,12 +337,21 @@ func (w *workspaceTerminalCmd) preRun(cmd *cobra.Command, args []string) error {
 }
 
 func (w *workspaceTerminalCmd) run(cmd *cobra.Command, args []string) error {
-    // Connect to terminal - this is a blocking interactive call
-    err := w.manager.Terminal(cmd.Context(), w.id, w.command)
+    // Resolve name or ID to get the instance
+    instance, err := w.manager.Get(w.nameOrID)
     if err != nil {
         if errors.Is(err, instances.ErrInstanceNotFound) {
-            return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.id)
+            return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.nameOrID)
         }
+        return err
+    }
+
+    // Get the actual ID (in case user provided a name)
+    instanceID := instance.GetID()
+
+    // Connect to terminal - this is a blocking interactive call
+    err = w.manager.Terminal(cmd.Context(), instanceID, w.command)
+    if err != nil {
         return err
     }
     return nil
@@ -364,10 +373,10 @@ func NewWorkspaceTerminalCmd() *cobra.Command {
     c := &workspaceTerminalCmd{}
 
     cmd := &cobra.Command{
-        Use:     "terminal ID [COMMAND...]",
+        Use:     "terminal NAME|ID [COMMAND...]",
         Short:   "Connect to a running workspace with an interactive terminal",
         Args:    cobra.MinimumNArgs(1),
-        ValidArgsFunction: completeRunningWorkspaceID,  // Only show running workspaces
+        ValidArgsFunction: completeRunningWorkspaceID,  // Shows running workspace IDs and names
         PreRunE: c.preRun,
         RunE:    c.run,
     }

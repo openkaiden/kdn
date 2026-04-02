@@ -30,8 +30,8 @@ func TestRemoveCmd(t *testing.T) {
 		t.Fatal("NewRemoveCmd() returned nil")
 	}
 
-	if cmd.Use != "remove ID" {
-		t.Errorf("Expected Use to be 'remove ID', got '%s'", cmd.Use)
+	if cmd.Use != "remove NAME|ID" {
+		t.Errorf("Expected Use to be 'remove NAME|ID', got '%s'", cmd.Use)
 	}
 
 	// Verify it has the same behavior as workspace remove

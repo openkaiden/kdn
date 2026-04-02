@@ -42,8 +42,8 @@ func TestWorkspaceRemoveCmd(t *testing.T) {
 		t.Fatal("NewWorkspaceRemoveCmd() returned nil")
 	}
 
-	if cmd.Use != "remove ID" {
-		t.Errorf("Expected Use to be 'remove ID', got '%s'", cmd.Use)
+	if cmd.Use != "remove NAME|ID" {
+		t.Errorf("Expected Use to be 'remove NAME|ID', got '%s'", cmd.Use)
 	}
 }
 
@@ -70,8 +70,8 @@ func TestWorkspaceRemoveCmd_PreRun(t *testing.T) {
 			t.Error("Expected manager to be created")
 		}
 
-		if c.id != "test-workspace-id" {
-			t.Errorf("Expected id to be 'test-workspace-id', got %s", c.id)
+		if c.nameOrID != "test-workspace-id" {
+			t.Errorf("Expected id to be 'test-workspace-id', got %s", c.nameOrID)
 		}
 	})
 
@@ -745,7 +745,7 @@ func TestWorkspaceRemoveCmd_Examples(t *testing.T) {
 	}
 
 	// Verify we have the expected number of examples
-	expectedCount := 2
+	expectedCount := 3
 	if len(commands) != expectedCount {
 		t.Errorf("Expected %d example commands, got %d", expectedCount, len(commands))
 	}

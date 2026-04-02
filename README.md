@@ -76,7 +76,7 @@ A standardized protocol for connecting AI agents to external data sources and to
 Pre-configured capabilities or specialized functions that can be enabled for an agent. Skills extend what an agent can do, such as code review, testing, or specific domain knowledge.
 
 ### Workspace
-A registered directory containing your project source code and its configuration. Each workspace is tracked by kortex-cli with a unique ID and name for easy management.
+A registered directory containing your project source code and its configuration. Each workspace is tracked by kortex-cli with a unique ID and a human-readable name. Workspaces can be accessed using either their ID or name in all commands (start, stop, remove, terminal).
 
 ## Scenarios
 
@@ -130,11 +130,11 @@ Create or edit `~/.kortex-cli/config/agents.json` to add the required environmen
 # Register a workspace with the Podman runtime and Claude agent
 kortex-cli init /path/to/project --runtime podman --agent claude
 
-# Start the workspace
-kortex-cli start <workspace-id>
+# Start the workspace (using name or ID)
+kortex-cli start my-project
 
 # Connect to the workspace — Claude Code will use Vertex AI automatically
-kortex-cli terminal <workspace-id>
+kortex-cli terminal my-project
 ```
 
 When Claude Code starts, it detects `ANTHROPIC_VERTEX_PROJECT_ID` and `CLOUD_ML_REGION` and routes all requests to Vertex AI using the mounted application default credentials.
@@ -216,11 +216,11 @@ EOF
 # Register a workspace — the settings file is embedded in the container image
 kortex-cli init /path/to/project --runtime podman --agent claude
 
-# Start the workspace
-kortex-cli start <workspace-id>
+# Start the workspace (using name or ID)
+kortex-cli start my-project
 
 # Connect — Claude Code starts directly without onboarding
-kortex-cli terminal <workspace-id>
+kortex-cli terminal my-project
 ```
 
 When `init` runs, kortex-cli reads all files from `~/.kortex-cli/config/claude/` and copies them into the container image at `/home/agent/`, so `.claude.json` lands at `/home/agent/.claude.json`. Claude Code finds this file on startup and skips onboarding.
@@ -380,13 +380,13 @@ kortex-cli init /path/to/my-project/feature-b --runtime podman --agent claude
 **Step 5: Start and connect to each workspace independently**
 
 ```bash
-# Start both workspaces
-kortex-cli start <workspace-id-a>
-kortex-cli start <workspace-id-b>
+# Start both workspaces (using names or IDs)
+kortex-cli start feature-a
+kortex-cli start feature-b
 
 # Connect to each agent in separate terminals
-kortex-cli terminal <workspace-id-a>
-kortex-cli terminal <workspace-id-b>
+kortex-cli terminal feature-a
+kortex-cli terminal feature-b
 ```
 
 Each agent runs independently in its own container, operating on its own branch without interfering with the other.
@@ -1754,18 +1754,18 @@ kortex-cli list -o json
 
 ### `workspace start` - Start a Workspace
 
-Starts a registered workspace by its ID. Also available as the shorter alias `start`.
+Starts a registered workspace by its name or ID. Also available as the shorter alias `start`.
 
 #### Usage
 
 ```bash
-kortex-cli workspace start ID [flags]
-kortex-cli start ID [flags]
+kortex-cli workspace start NAME|ID [flags]
+kortex-cli start NAME|ID [flags]
 ```
 
 #### Arguments
 
-- `ID` - The unique identifier of the workspace to start (required)
+- `NAME|ID` - The workspace name or unique identifier (required)
 
 #### Flags
 
@@ -1781,18 +1781,24 @@ kortex-cli workspace start a1b2c3d4e5f6...
 ```
 Output: `a1b2c3d4e5f6...` (ID of started workspace)
 
+**Start a workspace by name:**
+```bash
+kortex-cli workspace start my-project
+```
+Output: `a1b2c3d4e5f6...` (ID of started workspace)
+
 **Use the short alias:**
 ```bash
-kortex-cli start a1b2c3d4e5f6...
+kortex-cli start my-project
 ```
 
-**View workspace IDs before starting:**
+**View workspace names and IDs before starting:**
 ```bash
-# First, list all workspaces to find the ID
+# First, list all workspaces to find the name or ID
 kortex-cli list
 
-# Then start the desired workspace
-kortex-cli start a1b2c3d4e5f6...
+# Then start the desired workspace (using either name or ID)
+kortex-cli start my-project
 ```
 
 **JSON output:**
@@ -1841,9 +1847,9 @@ Output:
 
 #### Notes
 
-- The workspace ID is required and can be obtained using the `workspace list` or `list` command
+- You can specify the workspace using either its name or ID (both can be obtained using the `workspace list` or `list` command)
+- The command always outputs the workspace ID, even when started by name
 - Starting a workspace launches its associated runtime instance
-- Upon successful start, the command outputs the ID of the started workspace
 - The workspace runtime state is updated to reflect that it's running
 - JSON output format is useful for scripting and automation
 - When using `--output json`, errors are also returned in JSON format for consistent parsing
@@ -1851,18 +1857,18 @@ Output:
 
 ### `workspace stop` - Stop a Workspace
 
-Stops a running workspace by its ID. Also available as the shorter alias `stop`.
+Stops a running workspace by its name or ID. Also available as the shorter alias `stop`.
 
 #### Usage
 
 ```bash
-kortex-cli workspace stop ID [flags]
-kortex-cli stop ID [flags]
+kortex-cli workspace stop NAME|ID [flags]
+kortex-cli stop NAME|ID [flags]
 ```
 
 #### Arguments
 
-- `ID` - The unique identifier of the workspace to stop (required)
+- `NAME|ID` - The workspace name or unique identifier (required)
 
 #### Flags
 
@@ -1878,18 +1884,24 @@ kortex-cli workspace stop a1b2c3d4e5f6...
 ```
 Output: `a1b2c3d4e5f6...` (ID of stopped workspace)
 
+**Stop a workspace by name:**
+```bash
+kortex-cli workspace stop my-project
+```
+Output: `a1b2c3d4e5f6...` (ID of stopped workspace)
+
 **Use the short alias:**
 ```bash
-kortex-cli stop a1b2c3d4e5f6...
+kortex-cli stop my-project
 ```
 
-**View workspace IDs before stopping:**
+**View workspace names and IDs before stopping:**
 ```bash
-# First, list all workspaces to find the ID
+# First, list all workspaces to find the name or ID
 kortex-cli list
 
-# Then stop the desired workspace
-kortex-cli stop a1b2c3d4e5f6...
+# Then stop the desired workspace (using either name or ID)
+kortex-cli stop my-project
 ```
 
 **JSON output:**
@@ -1938,9 +1950,9 @@ Output:
 
 #### Notes
 
-- The workspace ID is required and can be obtained using the `workspace list` or `list` command
+- You can specify the workspace using either its name or ID (both can be obtained using the `workspace list` or `list` command)
+- The command always outputs the workspace ID, even when stopped by name
 - Stopping a workspace stops its associated runtime instance
-- Upon successful stop, the command outputs the ID of the stopped workspace
 - The workspace runtime state is updated to reflect that it's stopped
 - JSON output format is useful for scripting and automation
 - When using `--output json`, errors are also returned in JSON format for consistent parsing
@@ -1953,13 +1965,13 @@ Connects to a running workspace with an interactive terminal session. Also avail
 #### Usage
 
 ```bash
-kortex-cli workspace terminal ID [COMMAND...] [flags]
-kortex-cli terminal ID [COMMAND...] [flags]
+kortex-cli workspace terminal NAME|ID [COMMAND...] [flags]
+kortex-cli terminal NAME|ID [COMMAND...] [flags]
 ```
 
 #### Arguments
 
-- `ID` - The unique identifier of the workspace to connect to (required)
+- `NAME|ID` - The workspace name or unique identifier (required)
 - `COMMAND...` - Optional command to execute instead of the default agent command
 
 #### Flags
@@ -1968,21 +1980,26 @@ kortex-cli terminal ID [COMMAND...] [flags]
 
 #### Examples
 
-**Connect using the default agent command:**
+**Connect using the default agent command (by ID):**
 ```bash
 kortex-cli workspace terminal a1b2c3d4e5f6...
+```
+
+**Connect using the default agent command (by name):**
+```bash
+kortex-cli workspace terminal my-project
 ```
 
 This starts an interactive session with the default agent (typically Claude Code) inside the running workspace container.
 
 **Use the short alias:**
 ```bash
-kortex-cli terminal a1b2c3d4e5f6...
+kortex-cli terminal my-project
 ```
 
 **Run a bash shell:**
 ```bash
-kortex-cli terminal a1b2c3d4e5f6... bash
+kortex-cli terminal my-project bash
 ```
 
 **Run a command with flags (use -- to prevent kortex-cli from parsing them):**
@@ -2034,7 +2051,7 @@ kortex-cli terminal a1b2c3d4e5f6...
 #### Notes
 
 - The workspace must be in a **running state** before you can connect to it. Use `workspace start` to start a workspace first
-- The workspace ID is required and can be obtained using the `workspace list` or `list` command
+- You can specify the workspace using either its name or ID (both can be obtained using the `workspace list` or `list` command)
 - By default (when no command is provided), the runtime uses the `terminal_command` from the agent's configuration file
   - For example, if the workspace was created with `--agent claude`, it will use the command defined in `claude.json` (typically `["claude"]`)
   - This ensures you connect directly to the configured agent
@@ -2047,18 +2064,18 @@ kortex-cli terminal a1b2c3d4e5f6...
 
 ### `workspace remove` - Remove a Workspace
 
-Removes a registered workspace by its ID. Also available as the shorter alias `remove`.
+Removes a registered workspace by its name or ID. Also available as the shorter alias `remove`.
 
 #### Usage
 
 ```bash
-kortex-cli workspace remove ID [flags]
-kortex-cli remove ID [flags]
+kortex-cli workspace remove NAME|ID [flags]
+kortex-cli remove NAME|ID [flags]
 ```
 
 #### Arguments
 
-- `ID` - The unique identifier of the workspace to remove (required)
+- `NAME|ID` - The workspace name or unique identifier (required)
 
 #### Flags
 
@@ -2074,18 +2091,24 @@ kortex-cli workspace remove a1b2c3d4e5f6...
 ```
 Output: `a1b2c3d4e5f6...` (ID of removed workspace)
 
+**Remove a workspace by name:**
+```bash
+kortex-cli workspace remove my-project
+```
+Output: `a1b2c3d4e5f6...` (ID of removed workspace)
+
 **Use the short alias:**
 ```bash
-kortex-cli remove a1b2c3d4e5f6...
+kortex-cli remove my-project
 ```
 
-**View workspace IDs before removing:**
+**View workspace names and IDs before removing:**
 ```bash
-# First, list all workspaces to find the ID
+# First, list all workspaces to find the name or ID
 kortex-cli list
 
-# Then remove the desired workspace
-kortex-cli remove a1b2c3d4e5f6...
+# Then remove the desired workspace (using either name or ID)
+kortex-cli remove my-project
 ```
 
 **JSON output:**
@@ -2134,10 +2157,10 @@ Output:
 
 #### Notes
 
-- The workspace ID is required and can be obtained using the `workspace list` or `list` command
+- You can specify the workspace using either its name or ID (both can be obtained using the `workspace list` or `list` command)
+- The command always outputs the workspace ID, even when removed by name
 - Removing a workspace only unregisters it from kortex-cli; it does not delete any files from the sources or configuration directories
-- If the workspace ID is not found, the command will fail with a helpful error message
-- Upon successful removal, the command outputs the ID of the removed workspace
+- If the workspace name or ID is not found, the command will fail with a helpful error message
 - JSON output format is useful for scripting and automation
 - When using `--output json`, errors are also returned in JSON format for consistent parsing
 - **JSON error handling**: When `--output json` is used, errors are written to stdout (not stderr) in JSON format, and the CLI exits with code 1. Always check the exit code to determine success/failure

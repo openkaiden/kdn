@@ -585,6 +585,93 @@ func TestManager_Get(t *testing.T) {
 			t.Errorf("Get() error = %v, want %v", err, ErrInstanceNotFound)
 		}
 	})
+
+	t.Run("retrieves existing instance by name", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+
+		instanceTmpDir := t.TempDir()
+		expectedSource := filepath.Join(instanceTmpDir, "source")
+		expectedConfig := filepath.Join(instanceTmpDir, "config")
+		expectedName := "my-workspace"
+		inst := newFakeInstance(newFakeInstanceParams{
+			Name:       expectedName,
+			SourceDir:  expectedSource,
+			ConfigDir:  expectedConfig,
+			Accessible: true,
+		})
+		added, _ := manager.Add(context.Background(), AddOptions{Instance: inst, RuntimeType: "fake"})
+
+		generatedID := added.GetID()
+
+		// Retrieve by name
+		retrieved, err := manager.Get(expectedName)
+		if err != nil {
+			t.Fatalf("Get() unexpected error = %v", err)
+		}
+		if retrieved.GetID() != generatedID {
+			t.Errorf("Get() returned instance with ID = %v, want %v", retrieved.GetID(), generatedID)
+		}
+		if retrieved.GetName() != expectedName {
+			t.Errorf("Get() returned instance with Name = %v, want %v", retrieved.GetName(), expectedName)
+		}
+		if retrieved.GetSourceDir() != expectedSource {
+			t.Errorf("Get() returned instance with SourceDir = %v, want %v", retrieved.GetSourceDir(), expectedSource)
+		}
+	})
+
+	t.Run("returns error for nonexistent name", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+
+		_, err := manager.Get("nonexistent-name")
+		if err != ErrInstanceNotFound {
+			t.Errorf("Get() error = %v, want %v", err, ErrInstanceNotFound)
+		}
+	})
+
+	t.Run("ID takes precedence over name", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), newFakeGitDetector())
+
+		instanceTmpDir := t.TempDir()
+		// Create first instance
+		inst1 := newFakeInstance(newFakeInstanceParams{
+			Name:       "workspace-one",
+			SourceDir:  filepath.Join(instanceTmpDir, "source1"),
+			ConfigDir:  filepath.Join(instanceTmpDir, "config1"),
+			Accessible: true,
+		})
+		added1, _ := manager.Add(context.Background(), AddOptions{Instance: inst1, RuntimeType: "fake"})
+		id1 := added1.GetID()
+
+		// Create second instance
+		inst2 := newFakeInstance(newFakeInstanceParams{
+			Name:       "workspace-two",
+			SourceDir:  filepath.Join(instanceTmpDir, "source2"),
+			ConfigDir:  filepath.Join(instanceTmpDir, "config2"),
+			Accessible: true,
+		})
+		_, _ = manager.Add(context.Background(), AddOptions{Instance: inst2, RuntimeType: "fake"})
+
+		// Retrieve using the ID of first instance (should return first instance, not second)
+		retrieved, err := manager.Get(id1)
+		if err != nil {
+			t.Fatalf("Get() unexpected error = %v", err)
+		}
+		if retrieved.GetID() != id1 {
+			t.Errorf("Get() returned instance with ID = %v, want %v", retrieved.GetID(), id1)
+		}
+		if retrieved.GetName() != "workspace-one" {
+			t.Errorf("Get() returned instance with Name = %v, want %v", retrieved.GetName(), "workspace-one")
+		}
+	})
 }
 
 func TestManager_Delete(t *testing.T) {

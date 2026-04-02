@@ -97,14 +97,30 @@ func TestCompleteNonRunningWorkspaceID(t *testing.T) {
 		// Call completion function - should only return non-running instances
 		completions, directive := completeNonRunningWorkspaceID(cmd, []string{}, "")
 
-		// Verify we got only instance2 (instance1 is running)
-		if len(completions) != 1 {
-			t.Errorf("Expected 1 completion (non-running), got %d", len(completions))
+		// Verify we got instance2's ID and name (instance1 is running, so not included)
+		// Should return both ID and name for better discoverability
+		if len(completions) != 2 {
+			t.Errorf("Expected 2 completions (ID and name for non-running), got %d", len(completions))
 		}
 
-		// Verify only instance2 is in the completions
-		if len(completions) > 0 && completions[0] != addedInstance2.GetID() {
-			t.Errorf("Expected ID %s in completions, got %s", addedInstance2.GetID(), completions[0])
+		// Verify instance2 ID and name are in the completions
+		expectedID := addedInstance2.GetID()
+		expectedName := addedInstance2.GetName()
+		foundID := false
+		foundName := false
+		for _, completion := range completions {
+			if completion == expectedID {
+				foundID = true
+			}
+			if completion == expectedName {
+				foundName = true
+			}
+		}
+		if !foundID {
+			t.Errorf("Expected ID %s in completions, got %v", expectedID, completions)
+		}
+		if !foundName {
+			t.Errorf("Expected name %s in completions, got %v", expectedName, completions)
 		}
 
 		// Verify directive
@@ -254,14 +270,30 @@ func TestCompleteRunningWorkspaceID(t *testing.T) {
 		// Call completion function - should only return running instances
 		completions, directive := completeRunningWorkspaceID(cmd, []string{}, "")
 
-		// Verify we got only instance1 (instance2 is not running)
-		if len(completions) != 1 {
-			t.Errorf("Expected 1 completion (running), got %d", len(completions))
+		// Verify we got instance1's ID and name (instance2 is not running, so not included)
+		// Should return both ID and name for better discoverability
+		if len(completions) != 2 {
+			t.Errorf("Expected 2 completions (ID and name for running), got %d", len(completions))
 		}
 
-		// Verify only instance1 is in the completions
-		if len(completions) > 0 && completions[0] != addedInstance1.GetID() {
-			t.Errorf("Expected ID %s in completions, got %s", addedInstance1.GetID(), completions[0])
+		// Verify instance1 ID and name are in the completions
+		expectedID := addedInstance1.GetID()
+		expectedName := addedInstance1.GetName()
+		foundID := false
+		foundName := false
+		for _, completion := range completions {
+			if completion == expectedID {
+				foundID = true
+			}
+			if completion == expectedName {
+				foundName = true
+			}
+		}
+		if !foundID {
+			t.Errorf("Expected ID %s in completions, got %v", expectedID, completions)
+		}
+		if !foundName {
+			t.Errorf("Expected name %s in completions, got %v", expectedName, completions)
 		}
 
 		// Verify directive

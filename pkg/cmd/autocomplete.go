@@ -30,7 +30,7 @@ import (
 // stateFilter is a function that determines if an instance with the given state should be included
 type stateFilter func(state string) bool
 
-// getFilteredWorkspaceIDs retrieves workspace IDs, optionally filtered by state
+// getFilteredWorkspaceIDs retrieves workspace IDs and names, optionally filtered by state
 func getFilteredWorkspaceIDs(cmd *cobra.Command, filter stateFilter) ([]string, cobra.ShellCompDirective) {
 	// Get storage directory from global flag
 	storageDir, err := cmd.Flags().GetString("storage")
@@ -62,17 +62,19 @@ func getFilteredWorkspaceIDs(cmd *cobra.Command, filter stateFilter) ([]string, 
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	// Extract IDs with optional filtering
-	var ids []string
+	// Extract IDs and names with optional filtering
+	var completions []string
 	for _, instance := range instancesList {
 		state := instance.GetRuntimeData().State
 		// Apply filter if provided, otherwise include all
 		if filter == nil || filter(state) {
-			ids = append(ids, instance.GetID())
+			// Add both ID and name for better discoverability
+			completions = append(completions, instance.GetID())
+			completions = append(completions, instance.GetName())
 		}
 	}
 
-	return ids, cobra.ShellCompDirectiveNoFileComp
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
 // completeNonRunningWorkspaceID provides completion for non-running workspaces (for start and remove)

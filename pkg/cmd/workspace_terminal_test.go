@@ -38,8 +38,8 @@ func TestWorkspaceTerminalCmd(t *testing.T) {
 		t.Fatal("NewWorkspaceTerminalCmd() returned nil")
 	}
 
-	if cmd.Use != "terminal ID [COMMAND...]" {
-		t.Errorf("Expected Use to be 'terminal ID [COMMAND...]', got '%s'", cmd.Use)
+	if cmd.Use != "terminal NAME|ID [COMMAND...]" {
+		t.Errorf("Expected Use to be 'terminal NAME|ID [COMMAND...]', got '%s'", cmd.Use)
 	}
 }
 
@@ -66,8 +66,8 @@ func TestWorkspaceTerminalCmd_PreRun(t *testing.T) {
 			t.Error("Expected manager to be created")
 		}
 
-		if c.id != "test-workspace-id" {
-			t.Errorf("Expected id to be 'test-workspace-id', got %s", c.id)
+		if c.nameOrID != "test-workspace-id" {
+			t.Errorf("Expected id to be 'test-workspace-id', got %s", c.nameOrID)
 		}
 
 		// Verify command is empty when no command args provided
@@ -94,8 +94,8 @@ func TestWorkspaceTerminalCmd_PreRun(t *testing.T) {
 			t.Fatalf("preRun() failed: %v", err)
 		}
 
-		if c.id != "test-id" {
-			t.Errorf("Expected id to be 'test-id', got %s", c.id)
+		if c.nameOrID != "test-id" {
+			t.Errorf("Expected id to be 'test-id', got %s", c.nameOrID)
 		}
 
 		// Verify command was extracted in preRun
@@ -126,7 +126,7 @@ func TestWorkspaceTerminalCmd_Examples(t *testing.T) {
 	}
 
 	// Verify we have the expected number of examples
-	expectedCount := 3
+	expectedCount := 4
 	if len(commands) != expectedCount {
 		t.Errorf("Expected %d example commands, got %d", expectedCount, len(commands))
 	}

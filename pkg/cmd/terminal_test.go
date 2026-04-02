@@ -36,8 +36,8 @@ func TestTerminalCmd(t *testing.T) {
 		t.Fatal("NewTerminalCmd() returned nil")
 	}
 
-	if cmd.Use != "terminal ID [COMMAND...]" {
-		t.Errorf("Expected Use to be 'terminal ID [COMMAND...]', got '%s'", cmd.Use)
+	if cmd.Use != "terminal NAME|ID [COMMAND...]" {
+		t.Errorf("Expected Use to be 'terminal NAME|ID [COMMAND...]', got '%s'", cmd.Use)
 	}
 }
 

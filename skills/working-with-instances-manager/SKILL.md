@@ -83,13 +83,13 @@ for _, instance := range instancesList {
 
 ### Get - Retrieve Specific Instance
 
-Get a specific instance by ID:
+Get a specific instance by name or ID:
 
 ```go
-instance, err := manager.Get(id)
+instance, err := manager.Get(nameOrID)
 if err != nil {
     if errors.Is(err, instances.ErrInstanceNotFound) {
-        return fmt.Errorf("workspace not found: %s", id)
+        return fmt.Errorf("workspace not found: %s", nameOrID)
     }
     return fmt.Errorf("instance not found: %w", err)
 }
@@ -97,12 +97,18 @@ if err != nil {
 fmt.Printf("Found instance: %s (State: %s)\n", instance.ID, instance.State)
 ```
 
+**Key Points:**
+- The `Get()` method accepts either a workspace name or ID
+- It first tries to match by ID, then falls back to matching by name
+- This allows commands to accept user-friendly names while still supporting IDs
+- The method always returns the instance with its ID, regardless of how it was looked up
+
 ### Delete - Remove Instance
 
-Delete an instance from the manager:
+Delete an instance from the manager (requires ID):
 
 ```go
-err := manager.Delete(id)
+err := manager.Delete(ctx, id)
 if err != nil {
     if errors.Is(err, instances.ErrInstanceNotFound) {
         return fmt.Errorf("workspace not found: %s", id)
@@ -111,25 +117,69 @@ if err != nil {
 }
 ```
 
-### Start - Start Instance Runtime
+**For commands accepting name or ID:**
 
-Start a stopped instance:
+Commands should resolve the name or ID to an instance first, then use the ID:
 
 ```go
-info, err := manager.Start(ctx, id)
+// Resolve name or ID to get the instance
+instance, err := manager.Get(nameOrID)
+if err != nil {
+    if errors.Is(err, instances.ErrInstanceNotFound) {
+        return fmt.Errorf("workspace not found: %s", nameOrID)
+    }
+    return err
+}
+
+// Use the resolved ID
+err = manager.Delete(ctx, instance.GetID())
+if err != nil {
+    return fmt.Errorf("failed to delete instance: %w", err)
+}
+```
+
+### Start - Start Instance Runtime
+
+Start a stopped instance (requires ID):
+
+```go
+err := manager.Start(ctx, id)
 if err != nil {
     if errors.Is(err, instances.ErrInstanceNotFound) {
         return fmt.Errorf("workspace not found: %s", id)
     }
     return fmt.Errorf("failed to start instance: %w", err)
 }
+```
 
-fmt.Printf("Started instance: %s (State: %s)\n", info.ID, info.State)
+**For commands accepting name or ID:**
+
+Commands should resolve the name or ID to an instance first, then use the ID:
+
+```go
+// Resolve name or ID to get the instance
+instance, err := manager.Get(nameOrID)
+if err != nil {
+    if errors.Is(err, instances.ErrInstanceNotFound) {
+        return fmt.Errorf("workspace not found: %s", nameOrID)
+    }
+    return err
+}
+
+// Use the resolved ID
+instanceID := instance.GetID()
+err = manager.Start(ctx, instanceID)
+if err != nil {
+    return fmt.Errorf("failed to start instance: %w", err)
+}
+
+// Output the ID (not the name)
+fmt.Fprintln(cmd.OutOrStdout(), instanceID)
 ```
 
 ### Stop - Stop Instance Runtime
 
-Stop a running instance:
+Stop a running instance (requires ID):
 
 ```go
 err := manager.Stop(ctx, id)
@@ -141,9 +191,34 @@ if err != nil {
 }
 ```
 
+**For commands accepting name or ID:**
+
+Commands should resolve the name or ID to an instance first, then use the ID:
+
+```go
+// Resolve name or ID to get the instance
+instance, err := manager.Get(nameOrID)
+if err != nil {
+    if errors.Is(err, instances.ErrInstanceNotFound) {
+        return fmt.Errorf("workspace not found: %s", nameOrID)
+    }
+    return err
+}
+
+// Use the resolved ID
+instanceID := instance.GetID()
+err = manager.Stop(ctx, instanceID)
+if err != nil {
+    return fmt.Errorf("failed to stop instance: %w", err)
+}
+
+// Output the ID (not the name)
+fmt.Fprintln(cmd.OutOrStdout(), instanceID)
+```
+
 ### Terminal - Interactive Terminal Session
 
-Connect to a running instance with an interactive terminal:
+Connect to a running instance with an interactive terminal (requires ID):
 
 ```go
 err := manager.Terminal(cmd.Context(), id, []string{"bash"})
@@ -168,16 +243,27 @@ if err != nil {
 - Returns an error if instance state is not "running"
 - Returns an error if the runtime doesn't implement `runtime.Terminal` interface
 
-**Example usage in a command:**
+**For commands accepting name or ID:**
+
+Commands should resolve the name or ID to an instance first, then use the ID:
 
 ```go
 func (w *workspaceTerminalCmd) run(cmd *cobra.Command, args []string) error {
-    // Start terminal session with the command extracted in preRun
-    err := w.manager.Terminal(cmd.Context(), w.id, w.command)
+    // Resolve name or ID to get the instance
+    instance, err := w.manager.Get(w.nameOrID)
     if err != nil {
         if errors.Is(err, instances.ErrInstanceNotFound) {
-            return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.id)
+            return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.nameOrID)
         }
+        return err
+    }
+
+    // Get the actual ID (in case user provided a name)
+    instanceID := instance.GetID()
+
+    // Start terminal session
+    err = w.manager.Terminal(cmd.Context(), instanceID, w.command)
+    if err != nil {
         return err
     }
     return nil

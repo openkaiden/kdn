@@ -68,8 +68,8 @@ type Manager interface {
 	Terminal(ctx context.Context, id string, command []string) error
 	// List returns all registered instances
 	List() ([]Instance, error)
-	// Get retrieves a specific instance by ID
-	Get(id string) (Instance, error)
+	// Get retrieves a specific instance by name or ID
+	Get(nameOrID string) (Instance, error)
 	// Delete unregisters an instance by ID
 	Delete(ctx context.Context, id string) error
 	// Reconcile removes instances with inaccessible directories
@@ -441,8 +441,9 @@ func (m *manager) List() ([]Instance, error) {
 	return m.loadInstances()
 }
 
-// Get retrieves a specific instance by ID
-func (m *manager) Get(id string) (Instance, error) {
+// Get retrieves a specific instance by name or ID.
+// It first attempts to match by ID, then falls back to matching by name.
+func (m *manager) Get(nameOrID string) (Instance, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -451,9 +452,16 @@ func (m *manager) Get(id string) (Instance, error) {
 		return nil, err
 	}
 
-	// Look up by ID
+	// Try ID match first (backward compatible)
 	for _, instance := range instances {
-		if instance.GetID() == id {
+		if instance.GetID() == nameOrID {
+			return instance, nil
+		}
+	}
+
+	// Fall back to name match
+	for _, instance := range instances {
+		if instance.GetName() == nameOrID {
 			return instance, nil
 		}
 	}

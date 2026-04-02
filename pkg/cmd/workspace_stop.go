@@ -35,7 +35,7 @@ import (
 // workspaceStopCmd contains the configuration for the workspace stop command
 type workspaceStopCmd struct {
 	manager  instances.Manager
-	id       string
+	nameOrID string
 	output   string
 	showLogs bool
 }
@@ -57,7 +57,7 @@ func (w *workspaceStopCmd) preRun(cmd *cobra.Command, args []string) error {
 		cmd.SilenceErrors = true
 	}
 
-	w.id = args[0]
+	w.nameOrID = args[0]
 
 	// Get storage directory from global flag
 	storageDir, err := cmd.Flags().GetString("storage")
@@ -110,34 +110,43 @@ func (w *workspaceStopCmd) run(cmd *cobra.Command, args []string) error {
 	}
 	ctx = logger.WithLogger(ctx, l)
 
-	// Stop the instance
-	err := w.manager.Stop(ctx, w.id)
+	// Resolve name or ID to get the instance
+	instance, err := w.manager.Get(w.nameOrID)
 	if err != nil {
 		if errors.Is(err, instances.ErrInstanceNotFound) {
 			if w.output == "json" {
-				return outputErrorIfJSON(cmd, w.output, fmt.Errorf("workspace not found: %s", w.id))
+				return outputErrorIfJSON(cmd, w.output, fmt.Errorf("workspace not found: %s", w.nameOrID))
 			}
-			return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.id)
+			return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.nameOrID)
 		}
+		return outputErrorIfJSON(cmd, w.output, err)
+	}
+
+	// Get the actual ID (in case user provided a name)
+	instanceID := instance.GetID()
+
+	// Stop the instance
+	err = w.manager.Stop(ctx, instanceID)
+	if err != nil {
 		return outputErrorIfJSON(cmd, w.output, err)
 	}
 
 	// Handle JSON output
 	if w.output == "json" {
-		return w.outputJSON(cmd)
+		return w.outputJSON(cmd, instanceID)
 	}
 
 	// Output only the ID (text mode)
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, w.id)
+	fmt.Fprintln(out, instanceID)
 	return nil
 }
 
 // outputJSON outputs the workspace ID as JSON
-func (w *workspaceStopCmd) outputJSON(cmd *cobra.Command) error {
+func (w *workspaceStopCmd) outputJSON(cmd *cobra.Command, id string) error {
 	// Return only the ID (per OpenAPI spec)
 	workspaceId := api.WorkspaceId{
-		Id: w.id,
+		Id: id,
 	}
 
 	jsonData, err := json.MarshalIndent(workspaceId, "", "  ")
@@ -153,11 +162,14 @@ func NewWorkspaceStopCmd() *cobra.Command {
 	c := &workspaceStopCmd{}
 
 	cmd := &cobra.Command{
-		Use:   "stop ID",
+		Use:   "stop NAME|ID",
 		Short: "Stop a workspace",
-		Long:  "Stop a workspace by its ID",
+		Long:  "Stop a workspace by its name or ID",
 		Example: `# Stop workspace by ID
 kortex-cli workspace stop abc123
+
+# Stop workspace by name
+kortex-cli workspace stop my-project
 
 # Stop workspace with JSON output
 kortex-cli workspace stop abc123 --output json

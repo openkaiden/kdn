@@ -35,7 +35,7 @@ import (
 // workspaceStartCmd contains the configuration for the workspace start command
 type workspaceStartCmd struct {
 	manager  instances.Manager
-	id       string
+	nameOrID string
 	output   string
 	showLogs bool
 }
@@ -57,7 +57,7 @@ func (w *workspaceStartCmd) preRun(cmd *cobra.Command, args []string) error {
 		cmd.SilenceErrors = true
 	}
 
-	w.id = args[0]
+	w.nameOrID = args[0]
 
 	// Get storage directory from global flag
 	storageDir, err := cmd.Flags().GetString("storage")
@@ -110,34 +110,43 @@ func (w *workspaceStartCmd) run(cmd *cobra.Command, args []string) error {
 	}
 	ctx = logger.WithLogger(ctx, l)
 
-	// Start the instance
-	err := w.manager.Start(ctx, w.id)
+	// Resolve name or ID to get the instance
+	instance, err := w.manager.Get(w.nameOrID)
 	if err != nil {
 		if errors.Is(err, instances.ErrInstanceNotFound) {
 			if w.output == "json" {
-				return outputErrorIfJSON(cmd, w.output, fmt.Errorf("workspace not found: %s", w.id))
+				return outputErrorIfJSON(cmd, w.output, fmt.Errorf("workspace not found: %s", w.nameOrID))
 			}
-			return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.id)
+			return fmt.Errorf("workspace not found: %s\nUse 'workspace list' to see available workspaces", w.nameOrID)
 		}
+		return outputErrorIfJSON(cmd, w.output, err)
+	}
+
+	// Get the actual ID (in case user provided a name)
+	instanceID := instance.GetID()
+
+	// Start the instance
+	err = w.manager.Start(ctx, instanceID)
+	if err != nil {
 		return outputErrorIfJSON(cmd, w.output, err)
 	}
 
 	// Handle JSON output
 	if w.output == "json" {
-		return w.outputJSON(cmd)
+		return w.outputJSON(cmd, instanceID)
 	}
 
 	// Output only the ID (text mode)
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, w.id)
+	fmt.Fprintln(out, instanceID)
 	return nil
 }
 
 // outputJSON outputs the workspace ID as JSON
-func (w *workspaceStartCmd) outputJSON(cmd *cobra.Command) error {
+func (w *workspaceStartCmd) outputJSON(cmd *cobra.Command, id string) error {
 	// Return only the ID (per OpenAPI spec)
 	workspaceId := api.WorkspaceId{
-		Id: w.id,
+		Id: id,
 	}
 
 	jsonData, err := json.MarshalIndent(workspaceId, "", "  ")
@@ -153,11 +162,14 @@ func NewWorkspaceStartCmd() *cobra.Command {
 	c := &workspaceStartCmd{}
 
 	cmd := &cobra.Command{
-		Use:   "start ID",
+		Use:   "start NAME|ID",
 		Short: "Start a workspace",
-		Long:  "Start a workspace by its ID",
+		Long:  "Start a workspace by its name or ID",
 		Example: `# Start workspace by ID
 kortex-cli workspace start abc123
+
+# Start workspace by name
+kortex-cli workspace start my-project
 
 # Start workspace with JSON output
 kortex-cli workspace start abc123 --output json
