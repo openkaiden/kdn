@@ -293,25 +293,25 @@ func NewInitCmd() *cobra.Command {
 The sources directory defaults to the current directory (.) if not specified.
 The workspace configuration directory defaults to .kortex/ inside the sources directory if not specified.`,
 		Example: `# Register current directory as workspace
-kortex-cli init --runtime fake --agent claude
+kortex-cli init --runtime podman --agent claude
 
 # Register specific directory as workspace
-kortex-cli init --runtime fake --agent claude /path/to/project
+kortex-cli init --runtime podman --agent claude /path/to/project
 
 # Register with custom workspace name
-kortex-cli init --runtime fake --agent claude --name my-project
+kortex-cli init --runtime podman --agent claude --name my-project
 
 # Register with custom project identifier
-kortex-cli init --runtime fake --agent goose --project my-custom-project
+kortex-cli init --runtime podman --agent goose --project my-custom-project
 
 # Register and start workspace
 kortex-cli init --runtime podman --agent claude --start
 
 # Show detailed output
-kortex-cli init --runtime fake --agent claude --verbose
+kortex-cli init --runtime podman --agent claude --verbose
 
 # Show runtime command output
-kortex-cli init --runtime fake --agent claude --show-logs`,
+kortex-cli init --runtime podman --agent claude --show-logs`,
 		Args:    cobra.MaximumNArgs(1),
 		PreRunE: c.preRun,
 		RunE:    c.run,
