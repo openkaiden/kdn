@@ -305,7 +305,7 @@ kortex-cli init --runtime fake --agent claude --name my-project
 kortex-cli init --runtime fake --agent goose --project my-custom-project
 
 # Register and start workspace
-kortex-cli init --runtime fake --agent claude --start
+kortex-cli init --runtime podman --agent claude --start
 
 # Show detailed output
 kortex-cli init --runtime fake --agent claude --verbose

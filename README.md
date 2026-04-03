@@ -459,7 +459,7 @@ Exit code: `0` (success)
 **Step 3a: Register and start immediately with auto-start flag**
 
 ```bash
-$ kortex-cli init /path/to/third-project --runtime fake --agent claude -o json --start
+$ kortex-cli init /path/to/third-project --runtime podman --agent claude -o json --start
 ```
 
 ```json
@@ -759,7 +759,7 @@ Automatically starts a workspace after registration when using the `init` comman
 
 ```bash
 export KORTEX_CLI_INIT_AUTO_START=1
-kortex-cli init /path/to/project --runtime fake --agent claude
+kortex-cli init /path/to/project --runtime podman --agent claude
 ```
 
 **Priority:**
@@ -786,12 +786,12 @@ Any other value (including `0`, `false`, `no`, or empty string) will not trigger
 export KORTEX_CLI_INIT_AUTO_START=1
 
 # Register and start a workspace automatically
-kortex-cli init /path/to/project --runtime fake --agent claude
+kortex-cli init /path/to/project --runtime podman --agent claude
 # Workspace is now running
 
 # Override the environment variable with the flag
 export KORTEX_CLI_INIT_AUTO_START=0
-kortex-cli init /path/to/another-project --runtime fake --agent claude --start
+kortex-cli init /path/to/another-project --runtime podman --agent claude --start
 # Workspace is started despite env var being 0
 ```
 
@@ -1592,14 +1592,14 @@ kortex-cli init /path/to/myproject --runtime fake --agent claude --workspace-con
 
 **Register and start immediately:**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --start
+kortex-cli init /path/to/myproject --runtime podman --agent claude --start
 ```
 Output: `a1b2c3d4e5f6...` (workspace ID, workspace is now running)
 
 **Register and start using environment variable:**
 ```bash
 export KORTEX_CLI_INIT_AUTO_START=1
-kortex-cli init /path/to/myproject --runtime fake --agent claude
+kortex-cli init /path/to/myproject --runtime podman --agent claude
 ```
 Output: `a1b2c3d4e5f6...` (workspace ID, workspace is now running)
 
