@@ -423,7 +423,7 @@ Exit code: `0` (success, but no workspaces registered)
 **Step 2: Register a new workspace**
 
 ```bash
-$ kortex-cli init /path/to/project --runtime fake --agent claude -o json
+$ kortex-cli init /path/to/project --runtime podman --agent claude -o json
 ```
 
 ```json
@@ -437,7 +437,7 @@ Exit code: `0` (success)
 **Step 3: Register with verbose output to get full details**
 
 ```bash
-$ kortex-cli init /path/to/another-project --runtime fake --agent claude -o json -v
+$ kortex-cli init /path/to/another-project --runtime podman --agent claude -o json -v
 ```
 
 ```json
@@ -582,7 +582,7 @@ All errors are returned in JSON format when using `--output json`, with the erro
 **Error: Non-existent directory**
 
 ```bash
-$ kortex-cli init /tmp/no-exist --runtime fake --agent claude -o json
+$ kortex-cli init /tmp/no-exist --runtime podman --agent claude -o json
 ```
 
 ```json
@@ -622,7 +622,7 @@ Exit code: `1` (error)
 #!/bin/bash
 
 # Register a workspace
-output=$(kortex-cli init /path/to/project --runtime fake --agent claude -o json)
+output=$(kortex-cli init /path/to/project --runtime podman --agent claude -o json)
 exit_code=$?
 
 if [ $exit_code -eq 0 ]; then
@@ -686,7 +686,7 @@ Sets the default agent to use when registering a workspace with the `init` comma
 
 ```bash
 export KORTEX_CLI_DEFAULT_AGENT=claude
-kortex-cli init /path/to/project --runtime fake
+kortex-cli init /path/to/project --runtime podman
 ```
 
 **Priority:**
@@ -704,10 +704,10 @@ The agent is determined in the following order (highest to lowest priority):
 export KORTEX_CLI_DEFAULT_AGENT=claude
 
 # Register a workspace using the environment variable
-kortex-cli init /path/to/project --runtime fake
+kortex-cli init /path/to/project --runtime podman
 
 # Override the environment variable with the flag
-kortex-cli init /path/to/another-project --runtime fake --agent goose
+kortex-cli init /path/to/another-project --runtime podman --agent goose
 ```
 
 **Notes:**
@@ -726,7 +726,7 @@ Sets the default storage directory where kortex-cli stores its data files.
 
 ```bash
 export KORTEX_CLI_STORAGE=/custom/path/to/storage
-kortex-cli init /path/to/project --runtime fake --agent claude
+kortex-cli init /path/to/project --runtime podman --agent claude
 ```
 
 **Priority:**
@@ -744,7 +744,7 @@ The storage directory is determined in the following order (highest to lowest pr
 export KORTEX_CLI_STORAGE=/var/lib/kortex
 
 # All commands will use this storage directory
-kortex-cli init /path/to/project --runtime fake --agent claude
+kortex-cli init /path/to/project --runtime podman --agent claude
 kortex-cli list
 
 # Override the environment variable with the flag
@@ -1185,7 +1185,7 @@ When you register a workspace with `kortex-cli init`, the configuration is autom
 
 **Example - Invalid configuration (both value and secret set):**
 ```bash
-$ kortex-cli init /path/to/project --runtime fake --agent claude
+$ kortex-cli init /path/to/project --runtime podman --agent claude
 ```
 ```text
 Error: workspace configuration validation failed: invalid workspace configuration:
@@ -1194,7 +1194,7 @@ environment variable "API_KEY" (index 0) has both value and secret set
 
 **Example - Invalid configuration (missing host in mount):**
 ```bash
-$ kortex-cli init /path/to/project --runtime fake --agent claude
+$ kortex-cli init /path/to/project --runtime podman --agent claude
 ```
 ```text
 Error: workspace configuration validation failed: invalid workspace configuration:
@@ -1453,12 +1453,12 @@ This enables debug mode only when using the Claude agent.
 
 **Register workspace with agent-specific config:**
 ```bash
-kortex-cli init --runtime fake --agent claude
+kortex-cli init --runtime podman --agent claude
 ```
 
 **Register workspace with custom project:**
 ```bash
-kortex-cli init --runtime fake --project my-custom-project --agent goose
+kortex-cli init --runtime podman --project my-custom-project --agent goose
 ```
 
 **Note:** The `--agent` flag is required (or set `KORTEX_CLI_DEFAULT_AGENT` environment variable) when registering a workspace.
@@ -1529,7 +1529,7 @@ The system works without any configuration files and merges only the ones that e
 }
 ```
 
-**Result when running** `kortex-cli init --runtime fake --agent claude`:
+**Result when running** `kortex-cli init --runtime podman --agent claude`:
 - Environment: `NODE_ENV=development`, `DEBUG=true`, `CLAUDE_VERBOSE=true`
 - Mounts: `$HOME/.gitconfig`, `$HOME/.ssh`
 
@@ -1566,28 +1566,28 @@ kortex-cli init [sources-directory] [flags]
 
 **Register the current directory:**
 ```bash
-kortex-cli init --runtime fake --agent claude
+kortex-cli init --runtime podman --agent claude
 ```
 Output: `a1b2c3d4e5f6...` (workspace ID)
 
 **Register a specific directory:**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude
+kortex-cli init /path/to/myproject --runtime podman --agent claude
 ```
 
 **Register with a custom name:**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --name "my-awesome-project"
+kortex-cli init /path/to/myproject --runtime podman --agent claude --name "my-awesome-project"
 ```
 
 **Register with a custom project identifier:**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --project "my project"
+kortex-cli init /path/to/myproject --runtime podman --agent claude --project "my project"
 ```
 
 **Register with custom configuration location:**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --workspace-configuration /path/to/config
+kortex-cli init /path/to/myproject --runtime podman --agent claude --workspace-configuration /path/to/config
 ```
 
 **Register and start immediately:**
@@ -1605,7 +1605,7 @@ Output: `a1b2c3d4e5f6...` (workspace ID, workspace is now running)
 
 **View detailed output:**
 ```bash
-kortex-cli init --runtime fake --agent claude --verbose
+kortex-cli init --runtime podman --agent claude --verbose
 ```
 Output:
 ```text
@@ -1621,7 +1621,7 @@ Registered workspace:
 
 **JSON output (default - ID only):**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --output json
+kortex-cli init /path/to/myproject --runtime podman --agent claude --output json
 ```
 Output:
 ```json
@@ -1632,7 +1632,7 @@ Output:
 
 **JSON output with verbose flag (full workspace details):**
 ```bash
-kortex-cli init /path/to/myproject --runtime fake --agent claude --output json --verbose
+kortex-cli init /path/to/myproject --runtime podman --agent claude --output json --verbose
 ```
 Output:
 ```json
@@ -1667,15 +1667,15 @@ kortex-cli init --runtime podman --agent claude --show-logs
 **Examples:**
 ```bash
 # First workspace in /home/user/project
-kortex-cli init /home/user/project --runtime fake --agent claude
+kortex-cli init /home/user/project --runtime podman --agent claude
 # Name: "project"
 
 # Second workspace with the same directory name
-kortex-cli init /home/user/another-location/project --runtime fake --agent claude --name "project"
+kortex-cli init /home/user/another-location/project --runtime podman --agent claude --name "project"
 # Name: "project-2"
 
 # Third workspace with the same name
-kortex-cli init /tmp/project --runtime fake --agent claude --name "project"
+kortex-cli init /tmp/project --runtime podman --agent claude --name "project"
 # Name: "project-3"
 ```
 
@@ -1704,11 +1704,11 @@ The project is the repository remote URL (without `.git` suffix) plus the worksp
 # origin:   https://github.com/myuser/kortex-cli.git (fork)
 
 # Workspace at repository root
-kortex-cli init /home/user/kortex-cli --runtime fake --agent claude
+kortex-cli init /home/user/kortex-cli --runtime podman --agent claude
 # Project: https://github.com/kortex-hub/kortex-cli/
 
 # Workspace in subdirectory
-kortex-cli init /home/user/kortex-cli/pkg/git --runtime fake --agent claude
+kortex-cli init /home/user/kortex-cli/pkg/git --runtime podman --agent claude
 # Project: https://github.com/kortex-hub/kortex-cli/pkg/git
 ```
 
@@ -1724,11 +1724,11 @@ The project is the repository root directory path plus the workspace's relative 
 **Example - Local repository:**
 ```bash
 # Workspace at repository root
-kortex-cli init /home/user/local-repo --runtime fake --agent claude
+kortex-cli init /home/user/local-repo --runtime podman --agent claude
 # Project: /home/user/local-repo
 
 # Workspace in subdirectory
-kortex-cli init /home/user/local-repo/pkg/utils --runtime fake --agent claude
+kortex-cli init /home/user/local-repo/pkg/utils --runtime podman --agent claude
 # Project: /home/user/local-repo/pkg/utils
 ```
 
@@ -1738,7 +1738,7 @@ The project is the workspace source directory path:
 
 **Example - Regular directory:**
 ```bash
-kortex-cli init /tmp/workspace --runtime fake --agent claude
+kortex-cli init /tmp/workspace --runtime podman --agent claude
 # Project: /tmp/workspace
 ```
 
