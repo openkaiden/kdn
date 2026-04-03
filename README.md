@@ -192,7 +192,7 @@ This scenario demonstrates how to pre-configure Claude Code's settings so that w
 
 When you register a workspace with the Claude agent, kortex-cli automatically:
 - Sets `hasCompletedOnboarding: true` to skip the first-run wizard
-- Sets `hasTrustDialogAccepted: true` for the workspace sources directory (`/workspace/sources`)
+- Sets `hasTrustDialogAccepted: true` for the workspace sources directory (the exact path is determined by the runtime)
 
 This happens automatically for every Claude workspace — no manual configuration required.
 
@@ -237,7 +237,7 @@ kortex-cli terminal my-project
 
 When `init` runs, kortex-cli:
 1. Reads all files from `~/.kortex-cli/config/claude/` (e.g., your theme preferences)
-2. Automatically adds `hasCompletedOnboarding: true` and marks `/workspace/sources` as trusted
+2. Automatically adds `hasCompletedOnboarding: true` and marks the workspace sources directory as trusted (the path is determined by the runtime)
 3. Copies the final merged settings into the container image at `/home/agent/.claude.json`
 
 Claude Code finds this file on startup and skips onboarding.
