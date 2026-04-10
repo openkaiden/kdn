@@ -40,6 +40,7 @@ var availableAgents = []agentFactory{
 	agent.NewClaude,
 	agent.NewCursor,
 	agent.NewGoose,
+	agent.NewOpenCode,
 }
 
 // RegisterAll registers all available agent implementations to the given registrar.

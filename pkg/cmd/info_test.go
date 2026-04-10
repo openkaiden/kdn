@@ -217,7 +217,7 @@ func TestInfoCmd_E2E(t *testing.T) {
 			t.Fatalf("Failed to parse JSON: %v", err)
 		}
 
-		expected := []string{"claude", "cursor", "goose"}
+		expected := []string{"claude", "cursor", "goose", "opencode"}
 		if !slices.Equal(response.Agents, expected) {
 			t.Errorf("Expected agents %v, got: %v", expected, response.Agents)
 		}

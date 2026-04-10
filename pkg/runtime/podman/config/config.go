@@ -198,10 +198,11 @@ func (c *config) GenerateDefaults() error {
 
 	// Generate default configurations
 	configs := map[string]interface{}{
-		ImageConfigFileName:  defaultImageConfig(),
-		ClaudeConfigFileName: defaultClaudeConfig(),
-		GooseConfigFileName:  defaultGooseConfig(),
-		CursorConfigFileName: defaultCursorConfig(),
+		ImageConfigFileName:    defaultImageConfig(),
+		ClaudeConfigFileName:   defaultClaudeConfig(),
+		GooseConfigFileName:    defaultGooseConfig(),
+		CursorConfigFileName:   defaultCursorConfig(),
+		OpenCodeConfigFileName: defaultOpenCodeConfig(),
 	}
 
 	for filename, config := range configs {

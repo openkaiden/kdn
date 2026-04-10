@@ -255,7 +255,7 @@ func TestPodmanRuntime_ListAgents(t *testing.T) {
 		}
 
 		// Default initialization creates config files for all default agents
-		expected := []string{"claude", "cursor", "goose"}
+		expected := []string{"claude", "cursor", "goose", "opencode"}
 		if !slices.Equal(agents, expected) {
 			t.Errorf("Expected %v, got: %v", expected, agents)
 		}
