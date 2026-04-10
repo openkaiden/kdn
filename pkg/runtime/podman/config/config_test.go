@@ -254,6 +254,47 @@ func TestGenerateDefaults(t *testing.T) {
 		}
 	})
 
+	t.Run("creates default opencode config", func(t *testing.T) {
+		t.Parallel()
+
+		configDir := t.TempDir()
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		err = cfg.GenerateDefaults()
+		if err != nil {
+			t.Fatalf("GenerateDefaults() failed: %v", err)
+		}
+
+		// Verify opencode.json exists
+		openCodeConfigPath := filepath.Join(configDir, OpenCodeConfigFileName)
+		if _, err := os.Stat(openCodeConfigPath); os.IsNotExist(err) {
+			t.Error("opencode.json was not created")
+		}
+
+		// Verify content is valid JSON
+		data, err := os.ReadFile(openCodeConfigPath)
+		if err != nil {
+			t.Fatalf("Failed to read opencode config: %v", err)
+		}
+
+		var agentConfig AgentConfig
+		if err := json.Unmarshal(data, &agentConfig); err != nil {
+			t.Fatalf("Failed to parse opencode config: %v", err)
+		}
+
+		// Verify terminal command is set
+		if len(agentConfig.TerminalCommand) == 0 {
+			t.Error("Expected terminal command to be set")
+		}
+		if agentConfig.TerminalCommand[0] != "opencode" {
+			t.Errorf("Expected terminal command to be 'opencode', got: %s", agentConfig.TerminalCommand[0])
+		}
+	})
+
 	t.Run("does not overwrite existing configs", func(t *testing.T) {
 		t.Parallel()
 
@@ -413,6 +454,36 @@ func TestGenerateDefaults(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), cursorConfigPath) {
 			t.Errorf("Expected error to contain path %s, got: %v", cursorConfigPath, err)
+		}
+	})
+
+	t.Run("returns error when opencode config path is a directory", func(t *testing.T) {
+		t.Parallel()
+
+		configDir := t.TempDir()
+
+		cfg, err := NewConfig(configDir)
+		if err != nil {
+			t.Fatalf("NewConfig() failed: %v", err)
+		}
+
+		// Create opencode.json as a directory instead of a file
+		openCodeConfigPath := filepath.Join(configDir, OpenCodeConfigFileName)
+		if err := os.MkdirAll(openCodeConfigPath, 0755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+
+		// Call GenerateDefaults - should fail
+		err = cfg.GenerateDefaults()
+		if err == nil {
+			t.Fatal("Expected error when opencode config path is a directory")
+		}
+
+		if !strings.Contains(err.Error(), "expected file but found directory") {
+			t.Errorf("Expected 'expected file but found directory' error, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), openCodeConfigPath) {
+			t.Errorf("Expected error to contain path %s, got: %v", openCodeConfigPath, err)
 		}
 	})
 }
@@ -786,7 +857,7 @@ func TestListAgents(t *testing.T) {
 		}
 
 		// GenerateDefaults creates configs for all default agents
-		expected := []string{"claude", "cursor", "goose"}
+		expected := []string{"claude", "cursor", "goose", "opencode"}
 		if !slices.Equal(agents, expected) {
 			t.Errorf("Expected %v, got: %v", expected, agents)
 		}
