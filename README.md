@@ -1699,7 +1699,7 @@ Each key is an agent name (e.g., `claude`, `goose`). The value uses the same str
       {"host": "$HOME/.ssh", "target": "$HOME/.ssh"}
     ]
   },
-  "github.com/openkaiden/kdn/": {
+  "https://github.com/openkaiden/kdn/": {
     "environment": [
       {
         "name": "PROJECT_VAR",
@@ -1833,7 +1833,7 @@ The system works without any configuration files and merges only the ones that e
 **Project config** (`~/.kdn/config/projects.json` - your machine only):
 ```json
 {
-  "github.com/openkaiden/kdn/": {
+  "https://github.com/openkaiden/kdn/": {
     "environment": [
       {"name": "DEBUG", "value": "true"}
     ]

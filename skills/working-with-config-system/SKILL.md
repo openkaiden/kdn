@@ -186,7 +186,7 @@ Project-specific and global settings for environment variables and mounts:
       {"host": "$HOME/.ssh", "target": "$HOME/.ssh", "ro": true}
     ]
   },
-  "github.com/openkaiden/kdn/": {
+  "https://github.com/openkaiden/kdn/": {
     "environment": [
       {
         "name": "PROJECT_VAR",
