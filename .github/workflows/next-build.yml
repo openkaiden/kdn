@@ -34,7 +34,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          token: ${{ secrets.KORTEX_BOT_TOKEN }}
+          token: ${{ secrets.KAIDEN_BOT_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -66,10 +66,10 @@ jobs:
           git commit -m "chore: tag ${{ steps.version.outputs.githubTag }}"
           echo "Tagging with ${{ steps.version.outputs.githubTag }}"
           git tag ${{ steps.version.outputs.githubTag }}
-          git remote add prereleases https://x-access-token:${KORTEX_BOT_TOKEN}@github.com/openkaiden/kdn-prereleases
+          git remote add prereleases https://x-access-token:${KAIDEN_BOT_TOKEN}@github.com/openkaiden/kdn-prereleases
           git push prereleases ${{ steps.version.outputs.githubTag }}
         env:
-          KORTEX_BOT_TOKEN: ${{ secrets.KORTEX_BOT_TOKEN }}
+          KAIDEN_BOT_TOKEN: ${{ secrets.KAIDEN_BOT_TOKEN }}
 
       - name: checkout the tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -84,7 +84,7 @@ jobs:
           version: "~> v2.14"
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.KORTEX_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.KAIDEN_BOT_TOKEN }}
           MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
           MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}

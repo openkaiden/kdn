@@ -112,4 +112,4 @@ jobs:
           echo "🔅 Mark the PR as being ok to be merged automatically"
           gh pr merge "${pullRequestUrl}" --auto --rebase
         env:
-          GH_TOKEN: ${{ secrets.KORTEX_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.KAIDEN_BOT_TOKEN }}
