@@ -56,7 +56,7 @@ func (p *podmanRuntime) Remove(ctx context.Context, id string) error {
 
 	// Remove the pod
 	stepLogger.Start(fmt.Sprintf("Removing pod: %s", id), "Pod removed")
-	if err := p.removeContainer(ctx, id); err != nil {
+	if err := p.removePod(ctx, id); err != nil {
 		stepLogger.Fail(err)
 		return err
 	}
@@ -64,8 +64,8 @@ func (p *podmanRuntime) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-// removeContainer removes a podman pod by ID.
-func (p *podmanRuntime) removeContainer(ctx context.Context, id string) error {
+// removePod removes a podman pod by ID.
+func (p *podmanRuntime) removePod(ctx context.Context, id string) error {
 	l := logger.FromContext(ctx)
 	if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "rm", id); err != nil {
 		return fmt.Errorf("failed to remove pod: %w", err)

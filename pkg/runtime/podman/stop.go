@@ -35,7 +35,7 @@ func (p *podmanRuntime) Stop(ctx context.Context, id string) error {
 
 	// Stop the pod
 	logger.Start(fmt.Sprintf("Stopping pod: %s", id), "Pod stopped")
-	if err := p.stopContainer(ctx, id); err != nil {
+	if err := p.stopPod(ctx, id); err != nil {
 		logger.Fail(err)
 		return err
 	}
@@ -43,8 +43,8 @@ func (p *podmanRuntime) Stop(ctx context.Context, id string) error {
 	return nil
 }
 
-// stopContainer stops a podman pod by ID.
-func (p *podmanRuntime) stopContainer(ctx context.Context, id string) error {
+// stopPod stops a podman pod by ID.
+func (p *podmanRuntime) stopPod(ctx context.Context, id string) error {
 	l := logger.FromContext(ctx)
 	if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "stop", id); err != nil {
 		return fmt.Errorf("failed to stop pod: %w", err)

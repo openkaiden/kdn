@@ -286,7 +286,7 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
-	cleanupOnError = func() { _ = p.removeContainer(context.Background(), podN) }
+	cleanupOnError = func() { _ = p.removePod(context.Background(), podN) }
 
 	// Create proxy container in the pod
 	proxyContainer := proxyContainerName(podN)

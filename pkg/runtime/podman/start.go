@@ -35,7 +35,7 @@ func (p *podmanRuntime) Start(ctx context.Context, id string) (runtime.RuntimeIn
 
 	// Start the pod
 	stepLogger.Start(fmt.Sprintf("Starting pod: %s", id), "Pod started")
-	if err := p.startContainer(ctx, id); err != nil {
+	if err := p.startPod(ctx, id); err != nil {
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
@@ -51,8 +51,8 @@ func (p *podmanRuntime) Start(ctx context.Context, id string) (runtime.RuntimeIn
 	return info, nil
 }
 
-// startContainer starts a podman pod by ID.
-func (p *podmanRuntime) startContainer(ctx context.Context, id string) error {
+// startPod starts a podman pod by ID.
+func (p *podmanRuntime) startPod(ctx context.Context, id string) error {
 	l := logger.FromContext(ctx)
 	if err := p.executor.Run(ctx, l.Stdout(), l.Stderr(), "pod", "start", id); err != nil {
 		return fmt.Errorf("failed to start pod: %w", err)
