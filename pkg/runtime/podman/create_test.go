@@ -1034,6 +1034,122 @@ func TestCreate_StepLogger_FailOnCreateProxyContainer(t *testing.T) {
 	if fakeLogger.failCalls[0] == nil {
 		t.Error("Expected Fail() to be called with non-nil error")
 	}
+
+	// Verify the pod was cleaned up after the partial failure
+	fakeExec.AssertRunCalledWith(t, "pod", "rm", "kdn-test-workspace")
+}
+
+func TestCreate_CleansUpPodOnPartialFailure(t *testing.T) {
+	t.Parallel()
+
+	t.Run("removes pod when proxy container creation fails", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		fakeExec := exec.NewFake()
+		fakeExec.RunFunc = func(ctx context.Context, args ...string) error { return nil }
+		fakeExec.OutputFunc = func(ctx context.Context, args ...string) ([]byte, error) {
+			if len(args) > 0 && args[0] == "create" {
+				return nil, fmt.Errorf("create container failed")
+			}
+			return []byte("output"), nil
+		}
+
+		p := &podmanRuntime{
+			system:     &fakeSystem{},
+			executor:   fakeExec,
+			storageDir: storageDir,
+			config:     &fakeConfig{},
+		}
+
+		_, err := p.Create(context.Background(), runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+			Agent:      "test_agent",
+		})
+		if err == nil {
+			t.Fatal("Expected Create() to fail, got nil")
+		}
+
+		fakeExec.AssertRunCalledWith(t, "pod", "rm", "kdn-test-workspace")
+	})
+
+	t.Run("removes pod and proxy container when workspace container creation fails", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		proxyCreated := false
+		fakeExec := exec.NewFake()
+		fakeExec.RunFunc = func(ctx context.Context, args ...string) error { return nil }
+		fakeExec.OutputFunc = func(ctx context.Context, args ...string) ([]byte, error) {
+			if len(args) > 0 && args[0] == "create" {
+				if !proxyCreated {
+					proxyCreated = true
+					return []byte("proxy-container-id"), nil
+				}
+				return nil, fmt.Errorf("workspace container creation failed")
+			}
+			return []byte("output"), nil
+		}
+
+		p := &podmanRuntime{
+			system:     &fakeSystem{},
+			executor:   fakeExec,
+			storageDir: storageDir,
+			config:     &fakeConfig{},
+		}
+
+		_, err := p.Create(context.Background(), runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+			Agent:      "test_agent",
+		})
+		if err == nil {
+			t.Fatal("Expected Create() to fail, got nil")
+		}
+
+		// pod rm removes the pod and all containers inside it (including the proxy container)
+		fakeExec.AssertRunCalledWith(t, "pod", "rm", "kdn-test-workspace")
+	})
+
+	t.Run("does not remove pod on successful create", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		sourcePath := t.TempDir()
+
+		fakeExec := exec.NewFake()
+		fakeExec.RunFunc = func(ctx context.Context, args ...string) error { return nil }
+		fakeExec.OutputFunc = func(ctx context.Context, args ...string) ([]byte, error) {
+			return []byte("container-id"), nil
+		}
+
+		p := &podmanRuntime{
+			system:     &fakeSystem{},
+			executor:   fakeExec,
+			storageDir: storageDir,
+			config:     &fakeConfig{},
+		}
+
+		_, err := p.Create(context.Background(), runtime.CreateParams{
+			Name:       "test-workspace",
+			SourcePath: sourcePath,
+			Agent:      "test_agent",
+		})
+		if err != nil {
+			t.Fatalf("Expected Create() to succeed, got: %v", err)
+		}
+
+		for _, call := range fakeExec.RunCalls {
+			if len(call) >= 2 && call[0] == "pod" && call[1] == "rm" {
+				t.Errorf("Expected pod rm not to be called on success, but got: %v", call)
+			}
+		}
+	})
 }
 
 func TestCreate_CleansUpInstanceDirectory(t *testing.T) {

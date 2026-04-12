@@ -274,12 +274,19 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		return runtime.RuntimeInfo{}, err
 	}
 
+	// cleanupOnError is updated at each step to undo any resources created so far.
+	// The deferred call runs it on every return; on the success path it is a no-op.
+	// Use a background context so cleanup still runs if the original context is cancelled.
+	cleanupOnError := func() {}
+	defer func() { cleanupOnError() }()
+
 	// Create pod
 	stepLogger.Start(fmt.Sprintf("Creating pod: %s", podN), "Pod created")
 	if err := p.createPod(ctx, podN); err != nil {
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
+	cleanupOnError = func() { _ = p.removeContainer(context.Background(), podN) }
 
 	// Create proxy container in the pod
 	proxyContainer := proxyContainerName(podN)
@@ -289,6 +296,7 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
+	// Removing the pod also removes any containers inside it, so cleanupOnError stays the same.
 
 	// Create workspace container in the pod
 	wsContainer := workspaceContainerName(podN)
@@ -302,6 +310,9 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		stepLogger.Fail(err)
 		return runtime.RuntimeInfo{}, err
 	}
+
+	// All steps succeeded — disable cleanup so the deferred call is a no-op.
+	cleanupOnError = func() {}
 
 	// Return RuntimeInfo with the pod name as ID
 	info := map[string]string{
