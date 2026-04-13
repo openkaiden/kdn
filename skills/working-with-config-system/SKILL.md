@@ -67,6 +67,7 @@ When the `--model` flag is provided during `init`, kdn does two things with the 
    - Claude: `model` field in `.claude/settings.json`
    - Goose: `GOOSE_MODEL` field in `.config/goose/config.yaml`
    - Cursor: `model` object in `.cursor/cli-config.json`
+   - OpenCode: `model` field in `.config/opencode/opencode.json`
 
 The `--model` flag takes precedence over any model already defined in the settings files. If no model is specified, `GetModel()` returns an empty string and the `model` field is omitted from JSON output.
 
@@ -76,7 +77,7 @@ When the merged workspace configuration contains an `mcp` field, the manager cal
 - Claude: writes `mcpServers` entries into `.claude.json` at the top-level (user scope)
   - Command-based servers use `type: "stdio"` with `command`, `args`, and `env`
   - URL-based servers use `type: "sse"` with `url` and optional `headers`
-- Goose and Cursor: no-op (MCP configuration through settings files not supported)
+- Goose, Cursor, and OpenCode: no-op (MCP configuration through settings files not supported)
 
 MCP servers from all configuration levels are merged before being passed to the agent, with higher-precedence levels overriding lower ones by server `name`.
 

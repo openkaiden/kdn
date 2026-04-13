@@ -4,7 +4,7 @@ This file provides guidance to AI agents when working with code in this reposito
 
 ## Project Overview
 
-kdn is a command-line interface for launching and managing AI agents (Claude Code, Goose, Cursor) with custom configurations. It provides a unified way to start different agents with specific settings including skills, MCP server connections, and LLM integrations.
+kdn is a command-line interface for launching and managing AI agents (Claude Code, Goose, Cursor, OpenCode) with custom configurations. It provides a unified way to start different agents with specific settings including skills, MCP server connections, and LLM integrations.
 
 ## Build and Test Commands
 
@@ -236,6 +236,7 @@ The Podman runtime supports runtime-specific configuration for **building and co
 - `<storage-dir>/runtimes/podman/config/image.json` - Base image configuration
 - `<storage-dir>/runtimes/podman/config/claude.json` - Claude agent configuration
 - `<storage-dir>/runtimes/podman/config/goose.json` - Goose agent configuration
+- `<storage-dir>/runtimes/podman/config/opencode.json` - OpenCode agent configuration
 
 **For Podman runtime configuration details, use:** `/working-with-podman-runtime-config`
 
@@ -257,6 +258,7 @@ Skills can be provided to workspaces via the `skills` field in `workspace.json` 
 | Claude Code | `$HOME/.claude/skills/` |
 | Goose | `$HOME/.agents/skills/` |
 | Cursor | `$HOME/.cursor/skills/` |
+| OpenCode | `$HOME/.opencode/skills/` |
 
 The `Agent` interface (`pkg/agent/agent.go`) exposes `SkillsDir() string` which returns the container path (using the `$HOME` variable) where skill directories should be mounted. The manager calls this during `Add()` to convert `WorkspaceConfig.Skills` entries into `workspace.Mount` entries before passing the config to the runtime.
 

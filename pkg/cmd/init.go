@@ -317,6 +317,9 @@ kdn init --runtime podman --agent claude --name my-project
 # Register with custom project identifier
 kdn init --runtime podman --agent goose --project my-custom-project
 
+# Register with OpenCode agent
+kdn init --runtime podman --agent opencode
+
 # Register with a specific model
 kdn init --runtime podman --agent claude --model claude-sonnet-4-20250514
 
