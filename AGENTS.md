@@ -171,6 +171,15 @@ The runtime system provides a pluggable architecture for managing workspaces on 
 
 **To add a new runtime, use:** `/add-runtime`
 
+### Secret Service System
+
+The secret service system provides a pluggable architecture for managing secret service definitions that describe how secrets are applied to workspace requests.
+
+**Key Components:**
+- **SecretService Interface** (`pkg/secretservice/secretservice.go`): Contract all secret services must implement (`Name()`, `HostPattern()`, `Path()`, `EnvVars()`, `HeaderName()`, `HeaderTemplate()`)
+- **Registry** (`pkg/secretservice/registry.go`): Manages secret service registration and discovery
+- **Centralized Registration** (`pkg/secretservicesetup/register.go`): Automatically registers all available secret services
+
 ### StepLogger System
 
 The StepLogger system provides user-facing progress feedback during runtime operations with spinners and completion messages.
@@ -294,6 +303,12 @@ manager, err := instances.NewManager(storageDir)
 
 // Register runtimes
 runtimesetup.RegisterAll(manager)
+
+// Register agents
+agentsetup.RegisterAll(manager)
+
+// Register secret services
+secretservicesetup.RegisterAll(manager)
 
 // Add instance
 manager.Add(ctx, instances.AddOptions{...})

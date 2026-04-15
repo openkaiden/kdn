@@ -33,6 +33,7 @@ import (
 	"github.com/openkaiden/kdn/pkg/generator"
 	"github.com/openkaiden/kdn/pkg/git"
 	"github.com/openkaiden/kdn/pkg/runtime"
+	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
 const (
@@ -84,18 +85,21 @@ type Manager interface {
 	RegisterRuntime(rt runtime.Runtime) error
 	// RegisterAgent registers an agent with the manager's registry
 	RegisterAgent(name string, agent agent.Agent) error
+	// RegisterSecretService registers a secret service with the manager's registry
+	RegisterSecretService(service secretservice.SecretService) error
 }
 
 // manager is the internal implementation of Manager
 type manager struct {
-	storageFile     string
-	storageDir      string
-	mu              sync.RWMutex
-	factory         InstanceFactory
-	generator       generator.Generator
-	runtimeRegistry runtime.Registry
-	agentRegistry   agent.Registry
-	gitDetector     git.Detector
+	storageFile           string
+	storageDir            string
+	mu                    sync.RWMutex
+	factory               InstanceFactory
+	generator             generator.Generator
+	runtimeRegistry       runtime.Registry
+	agentRegistry         agent.Registry
+	secretServiceRegistry secretservice.Registry
+	gitDetector           git.Detector
 }
 
 // Compile-time check to ensure manager implements Manager interface
@@ -109,12 +113,13 @@ func NewManager(storageDir string) (Manager, error) {
 		return nil, fmt.Errorf("failed to create runtime registry: %w", err)
 	}
 	agentReg := agent.NewRegistry()
-	return newManagerWithFactory(storageDir, NewInstanceFromData, generator.New(), reg, agentReg, git.NewDetector())
+	secretServiceReg := secretservice.NewRegistry()
+	return newManagerWithFactory(storageDir, NewInstanceFromData, generator.New(), reg, agentReg, secretServiceReg, git.NewDetector())
 }
 
 // newManagerWithFactory creates a new instance manager with a custom instance factory, generator, registry, and git detector.
 // This is unexported and primarily useful for testing with fake instances, generators, runtimes, and git detector.
-func newManagerWithFactory(storageDir string, factory InstanceFactory, gen generator.Generator, reg runtime.Registry, agentReg agent.Registry, detector git.Detector) (Manager, error) {
+func newManagerWithFactory(storageDir string, factory InstanceFactory, gen generator.Generator, reg runtime.Registry, agentReg agent.Registry, secretServiceReg secretservice.Registry, detector git.Detector) (Manager, error) {
 	if storageDir == "" {
 		return nil, errors.New("storage directory cannot be empty")
 	}
@@ -130,6 +135,9 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 	if agentReg == nil {
 		return nil, errors.New("agent registry cannot be nil")
 	}
+	if secretServiceReg == nil {
+		return nil, errors.New("secret service registry cannot be nil")
+	}
 	if detector == nil {
 		return nil, errors.New("git detector cannot be nil")
 	}
@@ -141,13 +149,14 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 
 	storageFile := filepath.Join(storageDir, DefaultStorageFileName)
 	return &manager{
-		storageFile:     storageFile,
-		storageDir:      storageDir,
-		factory:         factory,
-		generator:       gen,
-		runtimeRegistry: reg,
-		agentRegistry:   agentReg,
-		gitDetector:     detector,
+		storageFile:           storageFile,
+		storageDir:            storageDir,
+		factory:               factory,
+		generator:             gen,
+		runtimeRegistry:       reg,
+		agentRegistry:         agentReg,
+		secretServiceRegistry: secretServiceReg,
+		gitDetector:           detector,
 	}, nil
 }
 
@@ -637,6 +646,11 @@ func (m *manager) RegisterRuntime(rt runtime.Runtime) error {
 // RegisterAgent registers an agent with the manager's registry.
 func (m *manager) RegisterAgent(name string, agent agent.Agent) error {
 	return m.agentRegistry.Register(name, agent)
+}
+
+// RegisterSecretService registers a secret service with the manager's registry.
+func (m *manager) RegisterSecretService(service secretservice.SecretService) error {
+	return m.secretServiceRegistry.Register(service)
 }
 
 // generateUniqueName generates a unique name from the source directory

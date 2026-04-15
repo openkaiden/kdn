@@ -31,6 +31,7 @@ import (
 	"github.com/openkaiden/kdn/pkg/instances"
 	"github.com/openkaiden/kdn/pkg/logger"
 	"github.com/openkaiden/kdn/pkg/runtimesetup"
+	"github.com/openkaiden/kdn/pkg/secretservicesetup"
 	"github.com/openkaiden/kdn/pkg/steplogger"
 	"github.com/spf13/cobra"
 )
@@ -97,6 +98,11 @@ func (i *initCmd) preRun(cmd *cobra.Command, args []string) error {
 	// Register all available agents
 	if err := agentsetup.RegisterAll(manager); err != nil {
 		return outputErrorIfJSON(cmd, i.output, fmt.Errorf("failed to register agents: %w", err))
+	}
+
+	// Register all available secret services
+	if err := secretservicesetup.RegisterAll(manager); err != nil {
+		return outputErrorIfJSON(cmd, i.output, fmt.Errorf("failed to register secret services: %w", err))
 	}
 
 	i.manager = manager
