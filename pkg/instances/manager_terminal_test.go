@@ -23,6 +23,7 @@ import (
 	"github.com/openkaiden/kdn/pkg/agent"
 	"github.com/openkaiden/kdn/pkg/runtime"
 	"github.com/openkaiden/kdn/pkg/runtime/fake"
+	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
 // fakeTerminalRuntime is a fake runtime that implements runtime.Terminal
@@ -81,7 +82,7 @@ func TestManager_Terminal(t *testing.T) {
 		reg, _ := runtime.NewRegistry(filepath.Join(tmpDir, "runtimes"))
 		_ = reg.Register(fakeRT)
 
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -130,7 +131,7 @@ func TestManager_Terminal(t *testing.T) {
 		reg, _ := runtime.NewRegistry(filepath.Join(tmpDir, "runtimes"))
 		_ = reg.Register(fakeRT)
 
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -158,7 +159,7 @@ func TestManager_Terminal(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistryWithTerminal(tmpDir, nil), agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistryWithTerminal(tmpDir, nil), agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		err := manager.Terminal(context.Background(), "nonexistent-id", []string{"bash"})
 		if !errors.Is(err, ErrInstanceNotFound) {
@@ -176,7 +177,7 @@ func TestManager_Terminal(t *testing.T) {
 		reg, _ := runtime.NewRegistry(filepath.Join(tmpDir, "runtimes"))
 		_ = reg.Register(fakeRT)
 
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -209,7 +210,7 @@ func TestManager_Terminal(t *testing.T) {
 		regularFakeRT := fake.New()
 		_ = reg.Register(regularFakeRT)
 
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{
@@ -243,7 +244,7 @@ func TestManager_Terminal(t *testing.T) {
 		reg, _ := runtime.NewRegistry(filepath.Join(tmpDir, "runtimes"))
 		_ = reg.Register(fakeRT)
 
-		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), newFakeGitDetector())
+		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), reg, agent.NewRegistry(), secretservice.NewRegistry(), newFakeGitDetector())
 
 		instanceTmpDir := t.TempDir()
 		inst := newFakeInstance(newFakeInstanceParams{

@@ -21,6 +21,7 @@ import (
 
 	"github.com/openkaiden/kdn/pkg/agent"
 	"github.com/openkaiden/kdn/pkg/git"
+	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
 func TestManager_detectProject(t *testing.T) {
@@ -35,7 +36,7 @@ func TestManager_detectProject(t *testing.T) {
 		// Create fake git detector that returns ErrNotGitRepository
 		gitDetector := newFakeGitDetector()
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), sourceDir)
@@ -58,7 +59,7 @@ func TestManager_detectProject(t *testing.T) {
 			"", // at root, relative path is empty
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), repoRoot)
@@ -83,7 +84,7 @@ func TestManager_detectProject(t *testing.T) {
 			filepath.Join("pkg", "git"),
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), subDir)
@@ -107,7 +108,7 @@ func TestManager_detectProject(t *testing.T) {
 			"", // at root
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), repoRoot)
@@ -131,7 +132,7 @@ func TestManager_detectProject(t *testing.T) {
 			filepath.Join("pkg", "utils"),
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), subDir)
@@ -155,7 +156,7 @@ func TestManager_detectProject(t *testing.T) {
 			"",
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), repoRoot)
@@ -179,7 +180,7 @@ func TestManager_detectProject(t *testing.T) {
 			filepath.Join("pkg", "cmd"),
 		)
 
-		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), gitDetector)
+		m, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), gitDetector)
 		mgr := m.(*manager)
 
 		result := mgr.detectProject(context.Background(), repoRoot)
