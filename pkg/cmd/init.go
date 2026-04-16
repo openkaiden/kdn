@@ -264,7 +264,14 @@ func (i *initCmd) run(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(out, "  Project: %s\n", addedInstance.GetProject())
 		fmt.Fprintf(out, "  Agent: %s\n", addedInstance.GetAgent())
 		if model := addedInstance.GetModel(); model != "" {
-			fmt.Fprintf(out, "  Model: %s\n", model)
+			provider, modelName, baseURL := config.ParseModelID(model)
+			fmt.Fprintf(out, "  Model: %s\n", modelName)
+			if provider != "" {
+				fmt.Fprintf(out, "  Provider: %s\n", provider)
+			}
+			if baseURL != "" {
+				fmt.Fprintf(out, "  Base URL: %s\n", baseURL)
+			}
 		} else {
 			fmt.Fprintf(out, "  Model: (default)\n")
 		}
@@ -328,6 +335,12 @@ kdn init --runtime podman --agent opencode
 
 # Register with a specific model
 kdn init --runtime podman --agent claude --model claude-sonnet-4-20250514
+
+# Register with a model provider (auto-configured base URL)
+kdn init --runtime podman --agent opencode --model ollama::gemma4:26b
+
+# Register with a model provider and custom endpoint
+kdn init --runtime podman --agent opencode --model ollama::gemma4:26b::http://192.168.1.50:11434/v1
 
 # Register and start workspace
 kdn init --runtime podman --agent claude --start

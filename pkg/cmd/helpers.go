@@ -14,7 +14,11 @@
 
 package cmd
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/openkaiden/kdn/pkg/config"
+)
 
 // AdaptExampleForAlias replaces the original command with the alias command
 // in the example string, but only in command lines (not in comments).
@@ -50,4 +54,10 @@ func AdaptExampleForAlias(example, originalCmd, aliasCmd string) string {
 	}
 
 	return strings.Join(result, "\n")
+}
+
+// displayModelID strips the provider:: and ::baseURL encoding from a model ID,
+// returning just the model name for human-readable display.
+func displayModelID(modelID string) string {
+	return config.DisplayModelName(modelID)
 }

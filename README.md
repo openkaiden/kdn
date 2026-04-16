@@ -2261,7 +2261,7 @@ kdn init [sources-directory] [flags]
 
 - `--runtime, -r <type>` - Runtime to use for the workspace (required if `KDN_DEFAULT_RUNTIME` is not set)
 - `--agent, -a <name>` - Agent to use for the workspace (required if `KDN_DEFAULT_AGENT` is not set)
-- `--model, -m <id>` - Model ID to configure for the agent (optional, uses agent's default if not specified)
+- `--model, -m <id>` - Model ID to configure for the agent. Supports three formats: `model`, `provider::model` (auto-configures provider with default base URL), or `provider::model::baseURL` (auto-configures provider with custom endpoint). Localhost aliases in base URLs are auto-converted to `host.containers.internal` for container access
 - `--workspace-configuration <path>` - Directory for workspace configuration files (default: `<sources-directory>/.kaiden`)
 - `--name, -n <name>` - Human-readable name for the workspace (default: generated from sources directory)
 - `--project, -p <identifier>` - Custom project identifier to override auto-detection (default: auto-detected from git repository or source directory)
@@ -2349,6 +2349,16 @@ Registered workspace:
   Sources directory: /absolute/path/to/myproject
   Configuration directory: /absolute/path/to/myproject/.kaiden
   State: stopped
+```
+
+**Register with a model provider (default endpoint):**
+```bash
+kdn init --runtime podman --agent opencode --model ollama::gemma4:26b
+```
+
+**Register with a model provider and custom endpoint:**
+```bash
+kdn init --runtime podman --agent opencode --model ollama::gemma4:26b::http://192.168.1.50:11434/v1
 ```
 
 **JSON output (default - ID only):**
@@ -2507,6 +2517,7 @@ kdn init /tmp/workspace --runtime podman --agent claude
 - **Runtime is required**: You must specify a runtime using either the `--runtime` flag or the `KDN_DEFAULT_RUNTIME` environment variable
 - **Agent is required**: You must specify an agent using either the `--agent` flag or the `KDN_DEFAULT_AGENT` environment variable
 - **Model is optional**: Use `--model` to specify a model ID for the agent. The flag takes precedence over any model defined in the agent's default settings files (`~/.kdn/config/<agent>/`). If not provided, the agent uses its default model or the one configured in settings. All agents support model configuration: Claude (via `.claude/settings.json`), Goose (via `config.yaml`), Cursor (via `.cursor/cli-config.json`), and OpenCode (via `.config/opencode/opencode.json`)
+- **Provider configuration**: The `--model` flag supports a `provider::model` format (e.g. `ollama::gemma4:26b`) that auto-configures the provider endpoint and stores the model ID as `provider/model`. Known providers (`ollama`, `ramalama`) have default base URLs pointing to `host.containers.internal`; unknown providers require the full format `provider::model::baseURL`. Localhost aliases (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`) in base URLs are automatically converted to `host.containers.internal` for container accessibility
 - **Project auto-detection**: The project identifier is automatically detected from git repository information or source directory path. Use `--project` flag to override with a custom identifier
 - **Auto-start**: Use the `--start` flag or set `KDN_INIT_AUTO_START=1` to automatically start the workspace after registration, combining `init` and `start` into a single operation
 - All directory paths are converted to absolute paths for consistency
@@ -2543,12 +2554,12 @@ kdn workspace list
 ```
 Output:
 ```text
-NAME             SHORT ID      PROJECT                              SOURCES                              AGENT/MODEL                            STATE
-myproject        a1b2c3d4e5f6  /absolute/path/to/myproject          /absolute/path/to/myproject          claude/claude-sonnet-4-20250514        running
-another-project  f6e5d4c3b2a1  /absolute/path/to/another-project    /absolute/path/to/another-project    goose                                  stopped
+NAME             SHORT ID      PROJECT                              SOURCES                              AGENT    MODEL                          STATE
+myproject        a1b2c3d4e5f6  /absolute/path/to/myproject          /absolute/path/to/myproject          claude   claude-sonnet-4-20250514       running
+another-project  f6e5d4c3b2a1  /absolute/path/to/another-project    /absolute/path/to/another-project    goose                                   stopped
 ```
 
-When a model is specified, the `AGENT/MODEL` column shows `agent/model` (e.g. `claude/claude-sonnet-4-20250514`). When no model is set, only the agent name is displayed (e.g. `goose`).
+The `AGENT` and `MODEL` columns are displayed separately. When no model is set, the `MODEL` column is empty.
 
 **Use the short alias:**
 ```bash
@@ -2600,7 +2611,7 @@ kdn list -o json
 #### Notes
 
 - When no workspaces are registered, the command displays "No workspaces registered"
-- The `AGENT/MODEL` column shows `agent/model` (e.g. `claude/claude-sonnet-4-20250514`) when a model was set at registration time, or just the agent name (e.g. `claude`) when no model was specified
+- The `AGENT` and `MODEL` columns are displayed separately. The `MODEL` column shows the model name when set at registration time, or is empty when no model was specified
 - In JSON output, the `model` field is only present when a model was explicitly set with `--model` during `init`
 - The JSON output format is useful for scripting and automation
 - All paths are displayed as absolute paths for consistency

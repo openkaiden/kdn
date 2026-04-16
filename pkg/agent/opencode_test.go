@@ -242,6 +242,205 @@ func TestOpenCode_SetModel(t *testing.T) {
 			t.Fatal("Expected error for invalid JSON")
 		}
 	})
+
+	t.Run("provider::model configures provider with default URL", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "ollama::gemma4:26b")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		if config["model"] != "ollama/gemma4:26b" {
+			t.Errorf("model = %v, want %q", config["model"], "ollama/gemma4:26b")
+		}
+
+		providers := config["provider"].(map[string]interface{})
+		ollama := providers["ollama"].(map[string]interface{})
+		options := ollama["options"].(map[string]interface{})
+
+		if got := options["baseURL"].(string); got != "http://host.containers.internal:11434/v1" {
+			t.Errorf("baseURL = %q, want default ollama URL", got)
+		}
+
+		models := ollama["models"].(map[string]interface{})
+		modelEntry := models["gemma4:26b"].(map[string]interface{})
+		if name := modelEntry["name"].(string); name != "gemma4:26b" {
+			t.Errorf("model name = %q, want %q", name, "gemma4:26b")
+		}
+		if launch := modelEntry["_launch"].(bool); !launch {
+			t.Errorf("_launch = %v, want true", launch)
+		}
+	})
+
+	t.Run("provider::model::baseURL configures provider with custom URL", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "ollama::gemma4:26b::http://192.168.1.50:11434/v1")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		if config["model"] != "ollama/gemma4:26b" {
+			t.Errorf("model = %v, want %q", config["model"], "ollama/gemma4:26b")
+		}
+
+		providers := config["provider"].(map[string]interface{})
+		ollama := providers["ollama"].(map[string]interface{})
+		options := ollama["options"].(map[string]interface{})
+
+		if got := options["baseURL"].(string); got != "http://192.168.1.50:11434/v1" {
+			t.Errorf("baseURL = %q, want %q", got, "http://192.168.1.50:11434/v1")
+		}
+	})
+
+	t.Run("provider::model::localhost URL converted to container host", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "ollama::gemma4:26b::http://localhost:11434/v1")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		providers := config["provider"].(map[string]interface{})
+		ollama := providers["ollama"].(map[string]interface{})
+		options := ollama["options"].(map[string]interface{})
+
+		if got := options["baseURL"].(string); got != "http://host.containers.internal:11434/v1" {
+			t.Errorf("baseURL = %q, want %q", got, "http://host.containers.internal:11434/v1")
+		}
+	})
+
+	t.Run("ramalama provider with default URL", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "ramalama::granite3.3:8b")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		if config["model"] != "ramalama/granite3.3:8b" {
+			t.Errorf("model = %v, want %q", config["model"], "ramalama/granite3.3:8b")
+		}
+
+		providers := config["provider"].(map[string]interface{})
+		ramalama := providers["ramalama"].(map[string]interface{})
+		options := ramalama["options"].(map[string]interface{})
+
+		if got := options["baseURL"].(string); got != "http://host.containers.internal:8080/v1" {
+			t.Errorf("baseURL = %q, want default ramalama URL", got)
+		}
+	})
+
+	t.Run("provider with empty model name returns error", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		_, err := agent.SetModel(settings, "ollama::")
+		if err == nil {
+			t.Fatal("Expected error for empty model name")
+		}
+	})
+
+	t.Run("unknown provider without baseURL returns error", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		_, err := agent.SetModel(settings, "unknown::some-model")
+		if err == nil {
+			t.Fatal("Expected error for unknown provider without baseURL")
+		}
+	})
+
+	t.Run("unknown provider with baseURL succeeds", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "custom::my-model::http://my-server:9090/v1")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		if config["model"] != "custom/my-model" {
+			t.Errorf("model = %v, want %q", config["model"], "custom/my-model")
+		}
+
+		providers := config["provider"].(map[string]interface{})
+		custom := providers["custom"].(map[string]interface{})
+		options := custom["options"].(map[string]interface{})
+
+		if got := options["baseURL"].(string); got != "http://my-server:9090/v1" {
+			t.Errorf("baseURL = %q, want %q", got, "http://my-server:9090/v1")
+		}
+	})
+
+	t.Run("plain model ID without provider", func(t *testing.T) {
+		t.Parallel()
+
+		agent := NewOpenCode()
+		settings := make(map[string][]byte)
+
+		result, err := agent.SetModel(settings, "anthropic/claude-sonnet-4-6")
+		if err != nil {
+			t.Fatalf("SetModel() error = %v", err)
+		}
+
+		var config map[string]interface{}
+		if err := json.Unmarshal(result[OpenCodeConfigPath], &config); err != nil {
+			t.Fatalf("Failed to parse result JSON: %v", err)
+		}
+
+		if config["model"] != "anthropic/claude-sonnet-4-6" {
+			t.Errorf("model = %v, want %q", config["model"], "anthropic/claude-sonnet-4-6")
+		}
+
+		if _, ok := config["provider"]; ok {
+			t.Error("Plain model ID should not create provider block")
+		}
+	})
 }
 
 func TestOpenCode_SkillsDir(t *testing.T) {
@@ -320,4 +519,35 @@ func TestOpenCode_SetMCPServers(t *testing.T) {
 			t.Errorf("SetMCPServers() modified other settings unexpectedly")
 		}
 	})
+}
+
+func TestToContainerURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"localhost", "http://localhost:11434/v1", "http://host.containers.internal:11434/v1"},
+		{"127.0.0.1", "http://127.0.0.1:8080/v1", "http://host.containers.internal:8080/v1"},
+		{"0.0.0.0", "http://0.0.0.0:11434/v1", "http://host.containers.internal:11434/v1"},
+		{"::1", "http://[::1]:11434/v1", "http://host.containers.internal:11434/v1"},
+		{"remote host unchanged", "http://192.168.1.50:11434/v1", "http://192.168.1.50:11434/v1"},
+		{"hostname unchanged", "http://my-server:11434/v1", "http://my-server:11434/v1"},
+		{"https preserved", "https://localhost:11434/v1", "https://host.containers.internal:11434/v1"},
+		{"no port", "http://localhost/v1", "http://host.containers.internal/v1"},
+		{"invalid URL returned as-is", "not a url ://", "not a url ://"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := toContainerURL(tt.input)
+			if got != tt.expected {
+				t.Errorf("toContainerURL(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
 }
