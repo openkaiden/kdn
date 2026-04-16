@@ -550,7 +550,7 @@ func TestWorkspaceListCmd_E2E(t *testing.T) {
 func TestWorkspaceListCmd_Model(t *testing.T) {
 	t.Parallel()
 
-	t.Run("table header shows AGENT/MODEL", func(t *testing.T) {
+	t.Run("table header shows AGENT and MODEL columns", func(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
@@ -589,12 +589,18 @@ func TestWorkspaceListCmd_Model(t *testing.T) {
 		}
 
 		result := output.String()
-		if !strings.Contains(result, "AGENT/MODEL") {
-			t.Errorf("Expected table header 'AGENT/MODEL', got: %s", result)
+		if !strings.Contains(result, "AGENT") {
+			t.Errorf("Expected table header 'AGENT', got: %s", result)
+		}
+		if !strings.Contains(result, "MODEL") {
+			t.Errorf("Expected table header 'MODEL', got: %s", result)
+		}
+		if strings.Contains(result, "AGENT/MODEL") {
+			t.Errorf("Expected separate AGENT and MODEL headers, got combined header: %s", result)
 		}
 	})
 
-	t.Run("shows agent/model in table when model is set", func(t *testing.T) {
+	t.Run("shows agent and model in separate columns when model is set", func(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
@@ -638,12 +644,18 @@ func TestWorkspaceListCmd_Model(t *testing.T) {
 		}
 
 		result := output.String()
-		if !strings.Contains(result, "claude/claude-sonnet-4-20250514") {
-			t.Errorf("Expected 'claude/claude-sonnet-4-20250514' in table, got: %s", result)
+		if !strings.Contains(result, "claude") {
+			t.Errorf("Expected 'claude' in AGENT column, got: %s", result)
+		}
+		if !strings.Contains(result, "claude-sonnet-4-20250514") {
+			t.Errorf("Expected 'claude-sonnet-4-20250514' in MODEL column, got: %s", result)
+		}
+		if strings.Contains(result, "claude/claude-sonnet-4-20250514") {
+			t.Errorf("Expected agent/model in separate columns, got combined value: %s", result)
 		}
 	})
 
-	t.Run("shows only agent name in table when model is not set", func(t *testing.T) {
+	t.Run("shows agent with empty model column when model is not set", func(t *testing.T) {
 		t.Parallel()
 
 		storageDir := t.TempDir()
@@ -688,10 +700,10 @@ func TestWorkspaceListCmd_Model(t *testing.T) {
 
 		result := output.String()
 		if !strings.Contains(result, "claude") {
-			t.Errorf("Expected 'claude' in table, got: %s", result)
+			t.Errorf("Expected 'claude' in AGENT column, got: %s", result)
 		}
 		if strings.Contains(result, "claude/") {
-			t.Errorf("Expected no slash after agent name when model is empty, got: %s", result)
+			t.Errorf("Expected empty MODEL column when model is unset, got combined agent/model output: %s", result)
 		}
 	})
 
