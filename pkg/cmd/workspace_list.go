@@ -144,7 +144,7 @@ func (w *workspaceListCmd) displayTable(cmd *cobra.Command, instancesList []inst
 	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 	columnFmt := color.New(color.FgYellow).SprintfFunc()
 
-	tbl := table.New("NAME", "SHORT ID", "PROJECT", "SOURCES", "AGENT/MODEL", "STATE")
+	tbl := table.New("NAME", "SHORT ID", "PROJECT", "SOURCES", "AGENT", "MODEL", "STATE")
 	tbl.WithWriter(out)
 	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
@@ -154,13 +154,11 @@ func (w *workspaceListCmd) displayTable(cmd *cobra.Command, instancesList []inst
 		name := instance.GetName()
 		project := instance.GetProject()
 		sources := compactPath(instance.GetSourceDir())
-		agentModel := instance.GetAgent()
-		if model := instance.GetModel(); model != "" {
-			agentModel += "/" + model
-		}
+		agent := instance.GetAgent()
+		model := displayModelID(instance.GetModel())
 		state := instance.GetRuntimeData().State
 
-		tbl.AddRow(name, shortID, project, sources, agentModel, state)
+		tbl.AddRow(name, shortID, project, sources, agent, model, state)
 	}
 
 	// Print the table
