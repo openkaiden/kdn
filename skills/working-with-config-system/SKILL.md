@@ -63,7 +63,7 @@ This means you can optionally customize agent preferences (theme, etc.) in the s
 
 When the `--model` flag is provided during `init`, kdn does two things with the model:
 
-1. **Persists it in instance data**: The model ID is stored in `InstanceData.Model` and saved to `instances.json`. It can be retrieved via `instance.GetModel()` and is shown in `init` verbose output and `kdn list` (`AGENT/MODEL` column and JSON `model` field).
+1. **Persists it in instance data**: The model ID is stored in `InstanceData.Model` and saved to `instances.json`. It can be retrieved via `instance.GetModel()` and is shown in `init` verbose output and `kdn list` (`MODEL` column and JSON `model` field).
 
 2. **Writes it to agent settings**: Calls the agent's `SetModel()` method to configure the model in the agent-specific settings file baked into the container image:
    - Claude: `model` field in `.claude/settings.json`
@@ -72,6 +72,15 @@ When the `--model` flag is provided during `init`, kdn does two things with the 
    - OpenCode: `model` field in `.config/opencode/opencode.json`
 
 The `--model` flag takes precedence over any model already defined in the settings files. If no model is specified, `GetModel()` returns an empty string and the `model` field is omitted from JSON output.
+
+**Provider Configuration (OpenCode):**
+
+The `--model` flag supports a `provider::model` format that auto-configures the provider endpoint in `SetModel()`. Three formats are supported:
+- `model` — plain model ID, no provider configuration
+- `provider::model` — auto-configures provider with its known default base URL
+- `provider::model::baseURL` — auto-configures provider with a custom base URL
+
+The model ID is stored as `provider/model` in the config. Known providers with default base URLs: `ollama` (`http://host.containers.internal:11434/v1`), `ramalama` (`http://host.containers.internal:8080/v1`). Unknown providers require the full `provider::model::baseURL` format. Localhost aliases in base URLs are auto-converted to `host.containers.internal`.
 
 **MCP Server Configuration:**
 

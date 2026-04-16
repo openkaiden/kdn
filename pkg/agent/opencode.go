@@ -21,9 +21,18 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 
 	workspace "github.com/openkaiden/kdn-api/workspace-configuration/go"
+	kdnconfig "github.com/openkaiden/kdn/pkg/config"
 )
+
+// containerHost is the hostname used to reach the host machine from inside a container.
+const containerHost = "host.containers.internal"
+
+// localhostAliases lists hostnames and IPs that refer to the local machine.
+var localhostAliases = []string{"localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"}
 
 const (
 	// OpenCodeConfigPath is the relative path to the OpenCode configuration file.
@@ -56,8 +65,12 @@ func (o *openCodeAgent) SkipOnboarding(settings map[string][]byte, _ string) (ma
 }
 
 // SetModel configures the model ID in OpenCode settings.
-// It sets the model field in .config/opencode/opencode.json.
-// All other fields in the settings file are preserved.
+// The modelID supports three formats:
+//   - "model" — sets the model directly
+//   - "provider::model" — sets provider/model and auto-configures the provider with its default base URL
+//   - "provider::model::baseURL" — sets provider/model and configures the provider with the given base URL
+//
+// All other fields in .config/opencode/opencode.json are preserved.
 func (o *openCodeAgent) SetModel(settings map[string][]byte, modelID string) (map[string][]byte, error) {
 	if settings == nil {
 		settings = make(map[string][]byte)
@@ -78,7 +91,29 @@ func (o *openCodeAgent) SetModel(settings map[string][]byte, modelID string) (ma
 		config = make(map[string]interface{})
 	}
 
-	config["model"] = modelID
+	// Parse provider::model[::baseURL] format
+	provider, modelName, baseURL := kdnconfig.ParseModelID(modelID)
+	if provider != "" {
+		if modelName == "" {
+			return nil, fmt.Errorf("invalid model ID %q: expected provider::model or provider::model::baseURL", modelID)
+		}
+		resolvedURL := baseURL
+		if resolvedURL == "" {
+			defaultURL, known := defaultProviderBaseURLs[provider]
+			if !known {
+				return nil, fmt.Errorf("unknown provider %q: append ::baseURL to specify the endpoint", provider)
+			}
+			resolvedURL = defaultURL
+		} else {
+			resolvedURL = toContainerURL(resolvedURL)
+		}
+		config["model"] = provider + "/" + modelName
+		if err := configureProvider(config, provider, modelName, resolvedURL); err != nil {
+			return nil, err
+		}
+	} else {
+		config["model"] = modelID
+	}
 
 	modifiedContent, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
@@ -98,4 +133,72 @@ func (o *openCodeAgent) SkillsDir() string {
 // through agent settings files.
 func (o *openCodeAgent) SetMCPServers(settings map[string][]byte, _ *workspace.McpConfiguration) (map[string][]byte, error) {
 	return settings, nil
+}
+
+// configureProvider adds a provider block with the given base URL and registers the model.
+func configureProvider(config map[string]interface{}, provider, modelName, baseURL string) error {
+	providers, _ := config["provider"].(map[string]interface{})
+	if providers == nil {
+		providers = make(map[string]interface{})
+	}
+	config["provider"] = providers
+
+	providerEntry, _ := providers[provider].(map[string]interface{})
+	if providerEntry == nil {
+		providerEntry = map[string]interface{}{
+			"name": provider,
+			"npm":  "@ai-sdk/openai-compatible",
+		}
+	}
+	options, _ := providerEntry["options"].(map[string]interface{})
+	if options == nil {
+		options = make(map[string]interface{})
+	}
+	options["baseURL"] = baseURL
+	providerEntry["options"] = options
+	providers[provider] = providerEntry
+
+	models, _ := providerEntry["models"].(map[string]interface{})
+	if models == nil {
+		models = make(map[string]interface{})
+	}
+	if _, exists := models[modelName]; !exists {
+		models[modelName] = map[string]interface{}{
+			"_launch": true,
+			"name":    modelName,
+		}
+	}
+	providerEntry["models"] = models
+
+	return nil
+}
+
+// toContainerURL replaces localhost aliases in a URL with host.containers.internal
+// so the URL is reachable from inside a container.
+func toContainerURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+
+	hostname := parsed.Hostname()
+	for _, alias := range localhostAliases {
+		if strings.EqualFold(hostname, alias) {
+			port := parsed.Port()
+			if port != "" {
+				parsed.Host = containerHost + ":" + port
+			} else {
+				parsed.Host = containerHost
+			}
+			return parsed.String()
+		}
+	}
+
+	return rawURL
+}
+
+// defaultProviderBaseURLs maps known provider names to their default base URLs.
+var defaultProviderBaseURLs = map[string]string{
+	"ollama":   "http://host.containers.internal:11434/v1",
+	"ramalama": "http://host.containers.internal:8080/v1",
 }
