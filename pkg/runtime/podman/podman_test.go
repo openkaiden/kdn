@@ -189,11 +189,11 @@ func TestWritePodFiles(t *testing.T) {
 		containerID := "abc123"
 
 		data := podTemplateData{
-			Name:              "my-project",
-			PostgresPort:      30000,
-			OnecliPort:        30001,
-			OnecliMetricsPort: 30002,
-			OnecliVersion:     "1.17",
+			Name:            "my-project",
+			PostgresPort:    30000,
+			OnecliWebPort:   30001,
+			OnecliProxyPort: 30002,
+			OnecliVersion:   "1.17",
 		}
 
 		err := p.writePodFiles(containerID, data)
@@ -220,10 +220,10 @@ func TestWritePodFiles(t *testing.T) {
 			t.Error("Pod YAML should contain postgres hostPort 30000")
 		}
 		if !strings.Contains(yamlStr, "hostPort: 30001") {
-			t.Error("Pod YAML should contain onecli hostPort 30001")
+			t.Error("Pod YAML should contain onecli web hostPort 30001")
 		}
 		if !strings.Contains(yamlStr, "hostPort: 30002") {
-			t.Error("Pod YAML should contain onecli metrics hostPort 30002")
+			t.Error("Pod YAML should contain onecli proxy hostPort 30002")
 		}
 		if !strings.Contains(yamlStr, "ghcr.io/onecli/onecli:1.17") {
 			t.Error("Pod YAML should contain versioned onecli image")
@@ -237,11 +237,11 @@ func TestWritePodFiles(t *testing.T) {
 		containerID := "def456"
 
 		data := podTemplateData{
-			Name:              "test-ws",
-			PostgresPort:      40000,
-			OnecliPort:        40001,
-			OnecliMetricsPort: 40002,
-			OnecliVersion:     "1.17",
+			Name:            "test-ws",
+			PostgresPort:    40000,
+			OnecliWebPort:   40001,
+			OnecliProxyPort: 40002,
+			OnecliVersion:   "1.17",
 		}
 
 		err := p.writePodFiles(containerID, data)
@@ -278,11 +278,11 @@ func TestCleanupPodFiles(t *testing.T) {
 	containerID := "abc123"
 
 	data := podTemplateData{
-		Name:              "my-ws",
-		PostgresPort:      50000,
-		OnecliPort:        50001,
-		OnecliMetricsPort: 50002,
-		OnecliVersion:     "1.17",
+		Name:            "my-ws",
+		PostgresPort:    50000,
+		OnecliWebPort:   50001,
+		OnecliProxyPort: 50002,
+		OnecliVersion:   "1.17",
 	}
 
 	if err := p.writePodFiles(containerID, data); err != nil {
@@ -307,11 +307,11 @@ func TestRenderPodYAML(t *testing.T) {
 		t.Parallel()
 
 		data := podTemplateData{
-			Name:              "my-project",
-			PostgresPort:      32100,
-			OnecliPort:        32101,
-			OnecliMetricsPort: 32102,
-			OnecliVersion:     "1.17",
+			Name:            "my-project",
+			PostgresPort:    32100,
+			OnecliWebPort:   32101,
+			OnecliProxyPort: 32102,
+			OnecliVersion:   "1.17",
 		}
 
 		result, err := renderPodYAML(data)
@@ -328,10 +328,10 @@ func TestRenderPodYAML(t *testing.T) {
 			t.Error("Expected rendered YAML to contain postgres hostPort 32100")
 		}
 		if !strings.Contains(yamlStr, "hostPort: 32101") {
-			t.Error("Expected rendered YAML to contain onecli hostPort 32101")
+			t.Error("Expected rendered YAML to contain onecli web hostPort 32101")
 		}
 		if !strings.Contains(yamlStr, "hostPort: 32102") {
-			t.Error("Expected rendered YAML to contain onecli metrics hostPort 32102")
+			t.Error("Expected rendered YAML to contain onecli proxy hostPort 32102")
 		}
 		if !strings.Contains(yamlStr, "ghcr.io/onecli/onecli:1.17") {
 			t.Error("Expected rendered YAML to contain versioned onecli image")
@@ -348,11 +348,11 @@ func TestRenderPodYAML(t *testing.T) {
 		t.Parallel()
 
 		data := podTemplateData{
-			Name:              "test",
-			PostgresPort:      10000,
-			OnecliPort:        10001,
-			OnecliMetricsPort: 10002,
-			OnecliVersion:     "2.0",
+			Name:            "test",
+			PostgresPort:    10000,
+			OnecliWebPort:   10001,
+			OnecliProxyPort: 10002,
+			OnecliVersion:   "2.0",
 		}
 
 		result, err := renderPodYAML(data)

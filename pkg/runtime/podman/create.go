@@ -36,11 +36,11 @@ const defaultOnecliVersion = "1.17"
 
 // podTemplateData holds the values used to render the pod YAML template.
 type podTemplateData struct {
-	Name              string
-	PostgresPort      int
-	OnecliPort        int
-	OnecliMetricsPort int
-	OnecliVersion     string
+	Name            string
+	PostgresPort    int
+	OnecliWebPort   int
+	OnecliProxyPort int
+	OnecliVersion   string
 }
 
 // validateCreateParams validates the create parameters.
@@ -265,11 +265,11 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 
 	// Render the pod YAML template
 	tmplData := podTemplateData{
-		Name:              params.Name,
-		PostgresPort:      freePorts[0],
-		OnecliPort:        freePorts[1],
-		OnecliMetricsPort: freePorts[2],
-		OnecliVersion:     defaultOnecliVersion,
+		Name:            params.Name,
+		PostgresPort:    freePorts[0],
+		OnecliWebPort:   freePorts[1],
+		OnecliProxyPort: freePorts[2],
+		OnecliVersion:   defaultOnecliVersion,
 	}
 
 	tmpPodDir := filepath.Join(instanceDir, "pod")

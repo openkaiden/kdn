@@ -20,12 +20,6 @@ spec:
         - containerPort: 5432
           hostPort: {{.PostgresPort}}
           hostIP: "127.0.0.1"
-        - containerPort: 10254
-          hostPort: {{.OnecliPort}}
-          hostIP: "127.0.0.1"
-        - containerPort: 10255
-          hostPort: {{.OnecliMetricsPort}}
-          hostIP: "127.0.0.1"
       readinessProbe:
         exec:
           command:
@@ -48,3 +42,10 @@ spec:
           value: "http://127.0.0.1:10254"
         - name: APP_URL
           value: "http://127.0.0.1:10254"
+      ports:
+        - containerPort: 10254
+          hostPort: {{.OnecliWebPort}}
+          hostIP: "127.0.0.1"
+        - containerPort: 10255
+          hostPort: {{.OnecliProxyPort}}
+          hostIP: "127.0.0.1"
