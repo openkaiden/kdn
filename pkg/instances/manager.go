@@ -661,7 +661,7 @@ var invalidNameChars = regexp.MustCompile(`[^a-z0-9._-]+`)
 func sanitizeName(name string) string {
 	name = strings.ToLower(name)
 	name = invalidNameChars.ReplaceAllString(name, "-")
-	name = strings.Trim(name, "-")
+	name = strings.Trim(name, "-._")
 	if name == "" {
 		return "workspace"
 	}

@@ -75,7 +75,7 @@ The `Add()` method:
 9. Calls agent's `SetMCPServers()` method if the merged config contains MCP servers (writes them into agent settings)
 10. Passes merged config and modified agent settings to runtime for injection into workspace
 
-**Name sanitization rules:** valid characters are `[a-z0-9._-]`. Uppercase letters are lowercased; any run of invalid characters (spaces, `@`, `+`, etc.) is collapsed into a single hyphen; leading and trailing hyphens are stripped. An empty result falls back to `"workspace"`.
+**Name sanitization rules:** valid characters are `[a-z0-9._-]`. Uppercase letters are lowercased; any run of invalid characters (spaces, `@`, `+`, etc.) is collapsed into a single hyphen; leading and trailing separators (hyphens, dots, and underscores) are stripped. An empty result falls back to `"workspace"`.
 
 ### List - Get All Instances
 

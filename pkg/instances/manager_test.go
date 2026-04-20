@@ -1804,6 +1804,9 @@ func TestSanitizeName(t *testing.T) {
 		{name: "all invalid chars returns workspace", input: "---", want: "workspace"},
 		{name: "empty string returns workspace", input: "", want: "workspace"},
 		{name: "dots and underscores preserved", input: "my.project_v2", want: "my.project_v2"},
+		{name: "leading dot trimmed", input: ".foo", want: "foo"},
+		{name: "trailing underscore trimmed", input: "foo_", want: "foo"},
+		{name: "only separator chars returns workspace", input: "_", want: "workspace"},
 	}
 
 	for _, tt := range tests {
@@ -2065,7 +2068,8 @@ func TestManager_generateUniqueName(t *testing.T) {
 
 		instances := []Instance{}
 
-		result := mgr.generateUniqueName("/tmp/my project", instances)
+		sourceDir := filepath.Join(t.TempDir(), "my project")
+		result := mgr.generateUniqueName(sourceDir, instances)
 
 		if result != "my-project" {
 			t.Errorf("generateUniqueName() = %v, want my-project", result)
@@ -2082,7 +2086,8 @@ func TestManager_generateUniqueName(t *testing.T) {
 
 		instances := []Instance{}
 
-		result := mgr.generateUniqueName("/tmp/MyProject", instances)
+		sourceDir := filepath.Join(t.TempDir(), "MyProject")
+		result := mgr.generateUniqueName(sourceDir, instances)
 
 		if result != "myproject" {
 			t.Errorf("generateUniqueName() = %v, want myproject", result)

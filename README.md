@@ -2474,7 +2474,7 @@ kdn init --runtime podman --agent claude --show-logs
 #### Workspace Naming
 
 - If `--name` is not provided, the name is automatically generated from the last component of the sources directory path
-- Names are automatically sanitized: uppercased letters are lowercased and any run of characters that are not alphanumeric, hyphens, dots, or underscores (including spaces) is collapsed into a single hyphen
+- Names are automatically sanitized: uppercased letters are lowercased, any run of characters that are not alphanumeric, hyphens, dots, or underscores (including spaces) is collapsed into a single hyphen, and leading/trailing separators (hyphens, dots, underscores) are stripped
 - If a workspace with the same name already exists, kdn automatically appends an increment (`-2`, `-3`, etc.) to ensure uniqueness
 
 **Examples:**
