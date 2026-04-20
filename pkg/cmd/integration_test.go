@@ -247,6 +247,7 @@ func integrationListWorkspaces(t *testing.T, storageDir string) api.WorkspacesLi
 
 func TestIntegration_CreateStartStopRemove(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -328,6 +329,7 @@ func TestIntegration_CreateStartStopRemove(t *testing.T) {
 
 func TestIntegration_ExecCommandInWorkspace(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -351,6 +353,7 @@ func TestIntegration_ExecCommandInWorkspace(t *testing.T) {
 
 func TestIntegration_CreateAndAutoStart(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -382,6 +385,7 @@ func TestIntegration_CreateAndAutoStart(t *testing.T) {
 
 func TestIntegration_ProjectFilesAccessible(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -410,6 +414,7 @@ func TestIntegration_ProjectFilesAccessible(t *testing.T) {
 
 func TestIntegration_ContainerImageCreated(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -428,6 +433,7 @@ func TestIntegration_ContainerImageCreated(t *testing.T) {
 
 func TestIntegration_ForceRemoveRunningWorkspace(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -460,6 +466,7 @@ func TestIntegration_ForceRemoveRunningWorkspace(t *testing.T) {
 
 func TestIntegration_RemoveRunningWithoutForceFails(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -486,6 +493,7 @@ func TestIntegration_RemoveRunningWithoutForceFails(t *testing.T) {
 
 func TestIntegration_EnvVarsFromConfig(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -518,6 +526,7 @@ func TestIntegration_EnvVarsFromConfig(t *testing.T) {
 
 func TestIntegration_BuildOutputVisible(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -539,6 +548,7 @@ func TestIntegration_BuildOutputVisible(t *testing.T) {
 
 func TestIntegration_GooseAgentWorkspace(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -577,6 +587,7 @@ func TestIntegration_GooseAgentWorkspace(t *testing.T) {
 
 func TestIntegration_ManageWorkspaceByName(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -613,6 +624,7 @@ func TestIntegration_ManageWorkspaceByName(t *testing.T) {
 
 func TestIntegration_AgentWritesAppearOnHost(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -645,6 +657,7 @@ func TestIntegration_AgentWritesAppearOnHost(t *testing.T) {
 
 func TestIntegration_StartsInProjectDirectory(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -667,6 +680,7 @@ func TestIntegration_StartsInProjectDirectory(t *testing.T) {
 
 func TestIntegration_MountExtraDirectories(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir := t.TempDir()
@@ -706,6 +720,7 @@ func TestIntegration_MountExtraDirectories(t *testing.T) {
 
 func TestIntegration_DuplicateNameGetsIncrement(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir1 := t.TempDir()
@@ -726,6 +741,7 @@ func TestIntegration_DuplicateNameGetsIncrement(t *testing.T) {
 
 func TestIntegration_OperationsOnNonExistentWorkspace(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 
@@ -747,6 +763,7 @@ func TestIntegration_OperationsOnNonExistentWorkspace(t *testing.T) {
 
 func TestIntegration_MultipleWorkspacesIsolated(t *testing.T) {
 	skipIfNoPodman(t)
+	t.Parallel()
 
 	storageDir := t.TempDir()
 	sourcesDir1 := t.TempDir()
