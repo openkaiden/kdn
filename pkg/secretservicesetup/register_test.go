@@ -188,8 +188,8 @@ func TestAvailableSecretServicesContainGitHub(t *testing.T) {
 	if svc.Name() != "github" {
 		t.Errorf("Name() = %q, want %q", svc.Name(), "github")
 	}
-	if svc.HostPattern() != `api\.github\.com` {
-		t.Errorf("HostPattern() = %q, want %q", svc.HostPattern(), `api\.github\.com`)
+	if svc.HostPattern() != "api.github.com" {
+		t.Errorf("HostPattern() = %q, want %q", svc.HostPattern(), "api.github.com")
 	}
 	if svc.Path() != "" {
 		t.Errorf("Path() = %q, want empty string", svc.Path())
