@@ -38,9 +38,18 @@ type CreateParams struct {
 	Envs           []string
 }
 
+// ListItem holds the metadata fields returned by List.
+type ListItem struct {
+	Name        string
+	Type        string
+	Description string
+}
+
 // Store manages persistent storage of secrets.
 type Store interface {
 	// Create stores the secret value in the system keychain and persists
 	// the remaining metadata to the storage directory.
 	Create(params CreateParams) error
+	// List returns the metadata for all stored secrets.
+	List() ([]ListItem, error)
 }

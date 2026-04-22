@@ -106,6 +106,23 @@ func (s *store) Create(params CreateParams) error {
 	return s.appendAndSave(sf, params)
 }
 
+// List reads secrets.json and returns metadata for all stored secrets.
+func (s *store) List() ([]ListItem, error) {
+	sf, err := s.loadSecretsFile()
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ListItem, 0, len(sf.Secrets))
+	for _, rec := range sf.Secrets {
+		items = append(items, ListItem{
+			Name:        rec.Name,
+			Type:        rec.Type,
+			Description: rec.Description,
+		})
+	}
+	return items, nil
+}
+
 // loadSecretsFile reads and parses secrets.json, returning an empty struct when
 // the file does not yet exist.
 func (s *store) loadSecretsFile() (secretsFile, error) {

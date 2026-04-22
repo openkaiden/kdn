@@ -17,7 +17,7 @@ The secrets system uses a two-layer architecture: a **Store** that persists secr
 
 ## Key Components
 
-- **Store interface** (`pkg/secret/secret.go`): `Create(CreateParams) error` — the only operation currently exposed
+- **Store interface** (`pkg/secret/secret.go`): `Create(CreateParams) error` and `List() ([]ListItem, error)`
 - **Store implementation** (`pkg/secret/store.go`): writes the value to the keychain, metadata to `secrets.json`
 - **SecretService interface** (`pkg/secretservice/secretservice.go`): describes a named type — host pattern, path, header name, header template, env vars
 - **Registry** (`pkg/secretservice/registry.go`): maps names to `SecretService` implementations
@@ -72,6 +72,13 @@ err := store.Create(secret.CreateParams{
 ```
 
 `Create` checks for a duplicate name before touching the keychain. `ErrSecretAlreadyExists` is returned if the name is already taken.
+
+To retrieve all stored secrets (metadata only — no secret values):
+
+```go
+items, err := store.List()
+// items is []secret.ListItem{Name, Type, Description}
+```
 
 ## Adding a New Named Secret Type
 
@@ -145,4 +152,16 @@ c := &secretCreateCmd{
     value:      "ghp_token",
     validTypes: []string{"github", secret.TypeOther},
 }
+```
+
+For commands that call `store.List()`, implement a fake that satisfies the full `Store` interface:
+
+```go
+type fakeListStore struct {
+    items []secret.ListItem
+    err   error
+}
+
+func (f *fakeListStore) Create(params secret.CreateParams) error { return nil }
+func (f *fakeListStore) List() ([]secret.ListItem, error)        { return f.items, f.err }
 ```

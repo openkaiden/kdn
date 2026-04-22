@@ -166,6 +166,53 @@ func TestStore_Create_ErrorsOnDuplicate(t *testing.T) {
 	}
 }
 
+func TestStore_List(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty when no secrets exist", func(t *testing.T) {
+		t.Parallel()
+
+		st := newStoreWithKeyring(t.TempDir(), &fakeKeyring{})
+		items, err := st.List()
+		if err != nil {
+			t.Fatalf("List() failed: %v", err)
+		}
+		if len(items) != 0 {
+			t.Errorf("expected 0 items, got %d", len(items))
+		}
+	})
+
+	t.Run("returns name, type, description for each secret", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		st := newStoreWithKeyring(dir, &fakeKeyring{})
+
+		if err := st.Create(CreateParams{Name: "tok1", Type: "github", Description: "first", Value: "v1"}); err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+		if err := st.Create(CreateParams{Name: "tok2", Type: TypeOther, Value: "v2",
+			Hosts: []string{"example.com"}, Path: "/", Header: "X-Key", HeaderTemplate: "${value}"}); err != nil {
+			t.Fatalf("Create() failed: %v", err)
+		}
+
+		items, err := st.List()
+		if err != nil {
+			t.Fatalf("List() failed: %v", err)
+		}
+		if len(items) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(items))
+		}
+
+		if items[0].Name != "tok1" || items[0].Type != "github" || items[0].Description != "first" {
+			t.Errorf("unexpected item[0]: %+v", items[0])
+		}
+		if items[1].Name != "tok2" || items[1].Type != TypeOther {
+			t.Errorf("unexpected item[1]: %+v", items[1])
+		}
+	})
+}
+
 func TestStore_Create_KeychainError(t *testing.T) {
 	t.Parallel()
 

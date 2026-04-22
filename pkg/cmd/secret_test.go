@@ -41,14 +41,20 @@ func TestSecretCmd(t *testing.T) {
 	}
 
 	foundCreate := false
+	foundList := false
 	for _, sub := range subCmds {
-		if sub.Use == "create <name>" {
+		switch sub.Use {
+		case "create <name>":
 			foundCreate = true
-			break
+		case "list":
+			foundList = true
 		}
 	}
 	if !foundCreate {
 		t.Error("expected secret command to have 'create' subcommand")
+	}
+	if !foundList {
+		t.Error("expected secret command to have 'list' subcommand")
 	}
 }
 
