@@ -50,6 +50,7 @@ func buildPreRunCmd(storageDir string) *cobra.Command {
 	cmd.Flags().String("header", "", "")
 	cmd.Flags().String("headerTemplate", "", "")
 	cmd.Flags().StringArray("host", nil, "")
+	cmd.Flags().StringArray("env", nil, "")
 	return cmd
 }
 
@@ -81,7 +82,7 @@ func TestSecretCreateCmd_Examples(t *testing.T) {
 		t.Fatalf("failed to parse examples: %v", err)
 	}
 
-	expectedCount := 3
+	expectedCount := 2
 	if len(commands) != expectedCount {
 		t.Errorf("expected %d example commands, got %d", expectedCount, len(commands))
 	}
@@ -234,6 +235,37 @@ func TestSecretCreateCmd_PreRun(t *testing.T) {
 		}
 	})
 
+	t.Run("other without --env", func(t *testing.T) {
+		t.Parallel()
+
+		c := &secretCreateCmd{secretType: "other", value: "v", hosts: []string{"example.com"}, validTypes: testValidTypes}
+		cmd := buildPreRunCmd(t.TempDir())
+		if err := cmd.Flags().Set("path", "/"); err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.Flags().Set("header", "Authorization"); err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.Flags().Set("headerTemplate", "Bearer ${value}"); err != nil {
+			t.Fatal(err)
+		}
+		err := c.preRun(cmd, []string{"name"})
+		if err == nil || !strings.Contains(err.Error(), "--env is required when --type=other") {
+			t.Errorf("expected '--env is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("github with --env rejected", func(t *testing.T) {
+		t.Parallel()
+
+		c := &secretCreateCmd{secretType: "github", value: "v", envs: []string{"MY_TOKEN"}, validTypes: testValidTypes}
+		cmd := buildPreRunCmd(t.TempDir())
+		err := c.preRun(cmd, []string{"name"})
+		if err == nil || !strings.Contains(err.Error(), "--env is only valid when --type=other") {
+			t.Errorf("expected '--env is only valid' error, got: %v", err)
+		}
+	})
+
 	t.Run("valid github params", func(t *testing.T) {
 		t.Parallel()
 
@@ -263,6 +295,7 @@ func TestSecretCreateCmd_Run(t *testing.T) {
 			path:           "/api",
 			header:         "Authorization",
 			headerTemplate: "Bearer ${value}",
+			envs:           []string{"MY_API_KEY", "API_KEY"},
 			store:          fs,
 			validTypes:     testValidTypes,
 		}
@@ -291,6 +324,9 @@ func TestSecretCreateCmd_Run(t *testing.T) {
 		}
 		if len(fs.params.Hosts) != 1 || fs.params.Hosts[0] != "api.example.com" {
 			t.Errorf("Hosts: want [api.example.com], got %v", fs.params.Hosts)
+		}
+		if len(fs.params.Envs) != 2 || fs.params.Envs[0] != "MY_API_KEY" || fs.params.Envs[1] != "API_KEY" {
+			t.Errorf("Envs: want [MY_API_KEY API_KEY], got %v", fs.params.Envs)
 		}
 	})
 

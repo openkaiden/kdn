@@ -11,7 +11,7 @@ The secrets system uses a two-layer architecture: a **Store** that persists secr
 ## Overview
 
 - Secret **values** live exclusively in the system keychain — never on disk
-- Non-sensitive **metadata** (type, hosts, path, header descriptors) is persisted to `<storage-dir>/secrets.json`
+- Non-sensitive **metadata** (type, hosts, path, header descriptors, envs) is persisted to `<storage-dir>/secrets.json`
 - Named types (e.g. `github`) derive all their descriptor fields from a registered `SecretService`
 - The built-in `other` type requires the user to supply all descriptor fields explicitly
 
@@ -39,7 +39,7 @@ The keychain backend is platform-specific: GNOME Keyring on Linux, Keychain on m
 | Type | How descriptor fields are resolved |
 |------|------------------------------------|
 | Named (e.g. `github`) | Taken from the registered `SecretService` automatically |
-| `other` | User must supply `--host`, `--path`, `--header`, `--headerTemplate` |
+| `other` | User must supply `--host`, `--path`, `--header`, `--headerTemplate`, `--env` |
 
 ## Using the Store
 
@@ -67,6 +67,7 @@ err := store.Create(secret.CreateParams{
     Path:           "/v1",
     Header:         "Authorization",
     HeaderTemplate: "Bearer ${value}",
+    Envs:           []string{"MY_API_KEY"},
 })
 ```
 
