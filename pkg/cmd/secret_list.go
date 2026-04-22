@@ -113,6 +113,10 @@ func (s *secretListCmd) outputJSON(cmd *cobra.Command, items []secret.ListItem) 
 		if item.HeaderTemplate != "" {
 			info.HeaderTemplate = &item.HeaderTemplate
 		}
+		if len(item.Envs) > 0 {
+			envs := item.Envs
+			info.Envs = &envs
+		}
 		secrets = append(secrets, info)
 	}
 

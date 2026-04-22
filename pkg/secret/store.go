@@ -123,6 +123,7 @@ func (s *store) List() ([]ListItem, error) {
 			Path:           rec.Path,
 			Header:         rec.Header,
 			HeaderTemplate: rec.HeaderTemplate,
+			Envs:           rec.Envs,
 		})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })

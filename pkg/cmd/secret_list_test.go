@@ -171,6 +171,7 @@ func TestSecretListCmd_Run(t *testing.T) {
 						Path:           "/v1",
 						Header:         "Authorization",
 						HeaderTemplate: "Bearer ${value}",
+						Envs:           []string{"MY_TOKEN"},
 					},
 				},
 			},
@@ -185,7 +186,7 @@ func TestSecretListCmd_Run(t *testing.T) {
 			t.Fatalf("run() failed: %v", err)
 		}
 		output := out.String()
-		for _, want := range []string{`"items"`, `"my-token"`, `"other"`, `"My token"`, `"api.example.com"`, `"/v1"`, `"Authorization"`, `"Bearer ${value}"`} {
+		for _, want := range []string{`"items"`, `"my-token"`, `"other"`, `"My token"`, `"api.example.com"`, `"/v1"`, `"Authorization"`, `"Bearer ${value}"`, `"MY_TOKEN"`} {
 			if !strings.Contains(output, want) {
 				t.Errorf("expected %q in JSON output, got: %s", want, output)
 			}

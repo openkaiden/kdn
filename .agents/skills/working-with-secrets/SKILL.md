@@ -77,7 +77,7 @@ To retrieve all stored secrets (metadata only — no secret values):
 
 ```go
 items, err := store.List()
-// items is []secret.ListItem{Name, Type, Description}
+// items is []secret.ListItem{Name, Type, Description, Hosts, Path, Header, HeaderTemplate, Envs}
 ```
 
 ## Adding a New Named Secret Type
