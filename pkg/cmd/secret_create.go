@@ -37,6 +37,7 @@ type secretCreateCmd struct {
 	path           string
 	header         string
 	headerTemplate string
+	envs           []string
 	store          secret.Store
 	validTypes     []string
 }
@@ -75,6 +76,9 @@ func (s *secretCreateCmd) preRun(cmd *cobra.Command, args []string) error {
 		if !cmd.Flags().Changed("headerTemplate") {
 			return fmt.Errorf("--headerTemplate is required when --type=%s", secret.TypeOther)
 		}
+		if len(s.envs) == 0 {
+			return fmt.Errorf("--env is required when --type=%s", secret.TypeOther)
+		}
 	} else {
 		// Descriptor flags are not valid for named types
 		if len(s.hosts) > 0 {
@@ -88,6 +92,9 @@ func (s *secretCreateCmd) preRun(cmd *cobra.Command, args []string) error {
 		}
 		if cmd.Flags().Changed("headerTemplate") {
 			return fmt.Errorf("--headerTemplate is only valid when --type=%s", secret.TypeOther)
+		}
+		if len(s.envs) > 0 {
+			return fmt.Errorf("--env is only valid when --type=%s", secret.TypeOther)
 		}
 	}
 
@@ -117,6 +124,7 @@ func (s *secretCreateCmd) run(cmd *cobra.Command, args []string) error {
 		Path:           s.path,
 		Header:         s.header,
 		HeaderTemplate: s.headerTemplate,
+		Envs:           s.envs,
 	}); err != nil {
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
@@ -140,20 +148,17 @@ func NewSecretCreateCmd() *cobra.Command {
 
 The secret value is stored securely in the system keychain (GNOME Keyring on
 Linux, Keychain on macOS, DPAPI on Windows). Non-sensitive metadata (type,
-hosts, path, header template) is persisted in the kdn storage directory.
+hosts, path, header template, envs) is persisted in the kdn storage directory.
 
 Accepted types: %s.
 
-When --type=other, the flags --host, --path, --header, and --headerTemplate
-are all required. For any other type, these flags must not be specified.`, typesStr),
+When --type=other, the flags --host, --path, --header, --headerTemplate, and
+--env are all required. For any other type, these flags must not be specified.`, typesStr),
 		Example: `# Create a GitHub token secret
 kdn secret create my-github-token --type github --value ghp_mytoken
 
 # Create a custom secret (type=other) with all required descriptor flags
-kdn secret create my-api-key --type other --value secret123 --host api.example.com --path /api/v1 --header Authorization --headerTemplate "Bearer ${value}"
-
-# Create a custom secret with multiple hosts
-kdn secret create my-api-key --type other --value secret123 --host api.example.com --host dev.example.com --path / --header Authorization --headerTemplate "Bearer ${value}"`,
+kdn secret create my-api-key --type other --value secret123 --host api.example.com --host dev.example.com --path /api/v1 --header Authorization --headerTemplate "Bearer ${value}" --env MY_API_KEY --env API_KEY`,
 		Args:    cobra.ExactArgs(1),
 		PreRunE: c.preRun,
 		RunE:    c.run,
@@ -169,6 +174,7 @@ kdn secret create my-api-key --type other --value secret123 --host api.example.c
 	cmd.Flags().StringVar(&c.path, "path", "", "URL path restriction (required for --type=other)")
 	cmd.Flags().StringVar(&c.header, "header", "", "HTTP header name (required for --type=other)")
 	cmd.Flags().StringVar(&c.headerTemplate, "headerTemplate", "", "HTTP header value template using ${value} as placeholder (required for --type=other)")
+	cmd.Flags().StringArrayVar(&c.envs, "env", nil, "Environment variable name to expose the secret value (required for --type=other, can be specified multiple times)")
 
 	return cmd
 }

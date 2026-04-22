@@ -35,6 +35,7 @@ type CreateParams struct {
 	Path           string
 	Header         string
 	HeaderTemplate string
+	Envs           []string
 }
 
 // Store manages persistent storage of secrets.

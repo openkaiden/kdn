@@ -77,6 +77,7 @@ type secretRecord struct {
 	Path           string   `json:"path,omitempty"`
 	Header         string   `json:"header,omitempty"`
 	HeaderTemplate string   `json:"headerTemplate,omitempty"`
+	Envs           []string `json:"envs,omitempty"`
 }
 
 type secretsFile struct {
@@ -132,6 +133,7 @@ func (s *store) appendAndSave(sf secretsFile, params CreateParams) error {
 		Path:           params.Path,
 		Header:         params.Header,
 		HeaderTemplate: params.HeaderTemplate,
+		Envs:           params.Envs,
 	})
 
 	jsonData, err := json.MarshalIndent(sf, "", "  ")
