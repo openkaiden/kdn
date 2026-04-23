@@ -3987,6 +3987,444 @@ func TestManager_Add_AppliesAgentMCPServers(t *testing.T) {
 	})
 }
 
+// fakeSecretStore is a test double for the secret.Store interface.
+type fakeSecretStore struct {
+	mu    sync.RWMutex
+	items map[string]fakeSecretStoreEntry
+}
+
+type fakeSecretStoreEntry struct {
+	item  secret.ListItem
+	value string
+	err   error
+}
+
+var _ secret.Store = (*fakeSecretStore)(nil)
+
+func newFakeSecretStore() *fakeSecretStore {
+	return &fakeSecretStore{items: make(map[string]fakeSecretStoreEntry)}
+}
+
+func (s *fakeSecretStore) setSecret(name string, item secret.ListItem, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.items[name] = fakeSecretStoreEntry{item: item, value: value}
+}
+
+func (s *fakeSecretStore) setError(name string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.items[name] = fakeSecretStoreEntry{err: err}
+}
+
+func (s *fakeSecretStore) Create(_ secret.CreateParams) error { return nil }
+func (s *fakeSecretStore) List() ([]secret.ListItem, error)   { return nil, nil }
+func (s *fakeSecretStore) Remove(_ string) error              { return nil }
+
+func (s *fakeSecretStore) Get(name string) (secret.ListItem, string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	e, ok := s.items[name]
+	if !ok {
+		return secret.ListItem{}, "", fmt.Errorf("secret %q not found", name)
+	}
+	if e.err != nil {
+		return secret.ListItem{}, "", e.err
+	}
+	return e.item, e.value, nil
+}
+
+// newTestRuntimeRegistry creates a runtime registry containing only the spy runtime.
+func newTestRuntimeRegistry(t *testing.T, tmpDir string, spy *spyRuntime) runtime.Registry {
+	t.Helper()
+	runtimesDir := filepath.Join(tmpDir, RuntimesSubdirectory)
+	reg, err := runtime.NewRegistry(runtimesDir)
+	if err != nil {
+		t.Fatalf("failed to create runtime registry: %v", err)
+	}
+	if err := reg.Register(spy); err != nil {
+		t.Fatalf("failed to register spy runtime: %v", err)
+	}
+	return reg
+}
+
+// newRealInstance creates a real Instance for use in integration-style manager tests.
+func newRealInstance(t *testing.T) Instance {
+	t.Helper()
+	tmpDir := t.TempDir()
+	sourceDir := filepath.Join(tmpDir, "source")
+	configDir := filepath.Join(tmpDir, "config")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("failed to create source dir: %v", err)
+	}
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+	inst, err := NewInstance(NewInstanceParams{SourceDir: sourceDir, ConfigDir: configDir})
+	if err != nil {
+		t.Fatalf("failed to create instance: %v", err)
+	}
+	return inst
+}
+
+func TestManager_Add_Secrets(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error when secret store get fails", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		store := newFakeSecretStore()
+		store.setError("my-secret", errors.New("keychain unavailable"))
+
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRegistry(tmpDir),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			store,
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		secretNames := []string{"my-secret"}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &secretNames,
+			},
+		})
+		if addErr == nil {
+			t.Fatal("Add() expected error when secret store fails, got nil")
+		}
+		if !strings.Contains(addErr.Error(), "failed to get secret") {
+			t.Errorf("Add() error = %q, want to contain %q", addErr.Error(), "failed to get secret")
+		}
+		if !strings.Contains(addErr.Error(), "my-secret") {
+			t.Errorf("Add() error = %q, want to contain secret name %q", addErr.Error(), "my-secret")
+		}
+	})
+
+	t.Run("returns error when secret mapper fails for unregistered type", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		store := newFakeSecretStore()
+		store.setSecret("gh-secret", secret.ListItem{
+			Name: "gh-secret",
+			Type: "github", // known type but not registered in the registry
+		}, "ghp_token123")
+
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRegistry(tmpDir),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(), // empty registry — mapper.Map will fail
+			store,
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		secretNames := []string{"gh-secret"}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &secretNames,
+			},
+		})
+		if addErr == nil {
+			t.Fatal("Add() expected error when mapper fails, got nil")
+		}
+		if !strings.Contains(addErr.Error(), "failed to map secret") {
+			t.Errorf("Add() error = %q, want to contain %q", addErr.Error(), "failed to map secret")
+		}
+	})
+
+	t.Run("passes known-type secret to runtime with env vars from service", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		store := newFakeSecretStore()
+		store.setSecret("gh-token", secret.ListItem{
+			Name: "gh-token",
+			Type: "github",
+		}, "ghp_abc123")
+
+		spy := newSpyRuntime(fake.New())
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRuntimeRegistry(t, tmpDir, spy),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			store,
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		svc := &fakeSecretServiceImpl{
+			name:           "github",
+			hostPattern:    `github\.com`,
+			headerName:     "Authorization",
+			headerTemplate: "Bearer ${value}",
+			envVars:        []string{"GITHUB_TOKEN"},
+		}
+		if err := manager.RegisterSecretService(svc); err != nil {
+			t.Fatalf("RegisterSecretService() error = %v", err)
+		}
+
+		secretNames := []string{"gh-token"}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &secretNames,
+			},
+		})
+		if addErr != nil {
+			t.Fatalf("Add() unexpected error = %v", addErr)
+		}
+
+		params := spy.LastCreateParams()
+		if len(params.OnecliSecrets) != 1 {
+			t.Fatalf("OnecliSecrets len = %d, want 1", len(params.OnecliSecrets))
+		}
+		got := params.OnecliSecrets[0]
+		if got.Name != "gh-token" {
+			t.Errorf("OnecliSecrets[0].Name = %q, want %q", got.Name, "gh-token")
+		}
+		if got.HostPattern != `github\.com` {
+			t.Errorf("OnecliSecrets[0].HostPattern = %q, want %q", got.HostPattern, `github\.com`)
+		}
+		if got.Value != "ghp_abc123" {
+			t.Errorf("OnecliSecrets[0].Value = %q, want %q", got.Value, "ghp_abc123")
+		}
+		if params.SecretEnvVars == nil {
+			t.Fatal("SecretEnvVars is nil, want non-nil")
+		}
+		if val, ok := params.SecretEnvVars["GITHUB_TOKEN"]; !ok {
+			t.Error("SecretEnvVars missing GITHUB_TOKEN")
+		} else if val != "placeholder" {
+			t.Errorf("SecretEnvVars[GITHUB_TOKEN] = %q, want %q", val, "placeholder")
+		}
+	})
+
+	t.Run("passes other-type secret to runtime with env vars from secret Envs", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		store := newFakeSecretStore()
+		store.setSecret("custom-token", secret.ListItem{
+			Name:   "custom-token",
+			Type:   secret.TypeOther,
+			Hosts:  []string{"api.example.com"},
+			Header: "X-Api-Key",
+			Envs:   []string{"MY_API_KEY", "EXAMPLE_TOKEN"},
+		}, "secret-value-xyz")
+
+		spy := newSpyRuntime(fake.New())
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRuntimeRegistry(t, tmpDir, spy),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			store,
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		secretNames := []string{"custom-token"}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &secretNames,
+			},
+		})
+		if addErr != nil {
+			t.Fatalf("Add() unexpected error = %v", addErr)
+		}
+
+		params := spy.LastCreateParams()
+		if len(params.OnecliSecrets) != 1 {
+			t.Fatalf("OnecliSecrets len = %d, want 1", len(params.OnecliSecrets))
+		}
+		got := params.OnecliSecrets[0]
+		if got.Name != "custom-token" {
+			t.Errorf("OnecliSecrets[0].Name = %q, want %q", got.Name, "custom-token")
+		}
+		if got.HostPattern != "api.example.com" {
+			t.Errorf("OnecliSecrets[0].HostPattern = %q, want %q", got.HostPattern, "api.example.com")
+		}
+		if params.SecretEnvVars == nil {
+			t.Fatal("SecretEnvVars is nil, want non-nil")
+		}
+		for _, envVar := range []string{"MY_API_KEY", "EXAMPLE_TOKEN"} {
+			if val, ok := params.SecretEnvVars[envVar]; !ok {
+				t.Errorf("SecretEnvVars missing %q", envVar)
+			} else if val != "placeholder" {
+				t.Errorf("SecretEnvVars[%q] = %q, want %q", envVar, val, "placeholder")
+			}
+		}
+	})
+
+	t.Run("does not process secrets when secrets list is nil", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		spy := newSpyRuntime(fake.New())
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRuntimeRegistry(t, tmpDir, spy),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			newFakeSecretStore(),
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: nil,
+			},
+		})
+		if addErr != nil {
+			t.Fatalf("Add() unexpected error = %v", addErr)
+		}
+
+		params := spy.LastCreateParams()
+		if len(params.OnecliSecrets) != 0 {
+			t.Errorf("OnecliSecrets len = %d, want 0", len(params.OnecliSecrets))
+		}
+	})
+
+	t.Run("does not process secrets when secrets list is empty", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		spy := newSpyRuntime(fake.New())
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRuntimeRegistry(t, tmpDir, spy),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			newFakeSecretStore(),
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+
+		emptySecrets := []string{}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &emptySecrets,
+			},
+		})
+		if addErr != nil {
+			t.Fatalf("Add() unexpected error = %v", addErr)
+		}
+
+		params := spy.LastCreateParams()
+		if len(params.OnecliSecrets) != 0 {
+			t.Errorf("OnecliSecrets len = %d, want 0", len(params.OnecliSecrets))
+		}
+	})
+
+	t.Run("processes multiple secrets", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		store := newFakeSecretStore()
+		store.setSecret("gh-token", secret.ListItem{
+			Name: "gh-token",
+			Type: "github",
+		}, "ghp_token")
+		store.setSecret("custom-api", secret.ListItem{
+			Name:  "custom-api",
+			Type:  secret.TypeOther,
+			Hosts: []string{"api.example.com"},
+			Envs:  []string{"EXAMPLE_API_KEY"},
+		}, "api-key-value")
+
+		spy := newSpyRuntime(fake.New())
+		manager, err := newManagerWithFactory(
+			tmpDir,
+			fakeInstanceFactory,
+			newFakeGenerator(),
+			newTestRuntimeRegistry(t, tmpDir, spy),
+			agent.NewRegistry(),
+			secretservice.NewRegistry(),
+			store,
+			newFakeGitDetector(),
+		)
+		if err != nil {
+			t.Fatalf("newManagerWithFactory() error = %v", err)
+		}
+		svc := &fakeSecretServiceImpl{
+			name:        "github",
+			hostPattern: `github\.com`,
+			headerName:  "Authorization",
+			envVars:     []string{"GITHUB_TOKEN"},
+		}
+		if err := manager.RegisterSecretService(svc); err != nil {
+			t.Fatalf("RegisterSecretService() error = %v", err)
+		}
+
+		secretNames := []string{"gh-token", "custom-api"}
+		_, addErr := manager.Add(context.Background(), AddOptions{
+			Instance:    newRealInstance(t),
+			RuntimeType: "fake",
+			WorkspaceConfig: &workspace.WorkspaceConfiguration{
+				Secrets: &secretNames,
+			},
+		})
+		if addErr != nil {
+			t.Fatalf("Add() unexpected error = %v", addErr)
+		}
+
+		params := spy.LastCreateParams()
+		if len(params.OnecliSecrets) != 2 {
+			t.Fatalf("OnecliSecrets len = %d, want 2", len(params.OnecliSecrets))
+		}
+		if params.SecretEnvVars == nil {
+			t.Fatal("SecretEnvVars is nil, want non-nil")
+		}
+		for _, envVar := range []string{"GITHUB_TOKEN", "EXAMPLE_API_KEY"} {
+			if _, ok := params.SecretEnvVars[envVar]; !ok {
+				t.Errorf("SecretEnvVars missing %q", envVar)
+			}
+		}
+	})
+}
+
 // fakeSecretServiceImpl is a test implementation of the SecretService interface
 type fakeSecretServiceImpl struct {
 	name           string
