@@ -39,7 +39,7 @@ secret, err := client.CreateSecret(ctx, onecli.CreateSecretInput{
     Name:        "github",
     Type:        "generic",
     Value:       "ghp_xxxx",
-    HostPattern: "api\\.github\\.com",
+    HostPattern: "api.github.com",
     InjectionConfig: &onecli.InjectionConfig{
         HeaderName:  "Authorization",
         ValueFormat: "Bearer {value}",

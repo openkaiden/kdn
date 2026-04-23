@@ -2266,7 +2266,7 @@ kdn service list
 Output:
 ```text
 NAME    HOST PATTERN       PATH  HEADER          HEADER TEMPLATE    ENV VARS
-github  api\.github\.com         Authorization   Bearer ${value}    GH_TOKEN, GITHUB_TOKEN
+github  api.github.com         Authorization   Bearer ${value}    GH_TOKEN, GITHUB_TOKEN
 ```
 
 **List services in JSON format:**
@@ -2279,7 +2279,7 @@ Output:
   "items": [
     {
       "name": "github",
-      "hostPattern": "api\\.github\\.com",
+      "hostPattern": "api.github.com",
       "headerName": "Authorization",
       "headerTemplate": "Bearer ${value}",
       "envVars": ["GH_TOKEN", "GITHUB_TOKEN"]

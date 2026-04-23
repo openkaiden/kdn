@@ -102,7 +102,7 @@ Add an entry to `pkg/secretservicesetup/secretservices.json`:
 ```json
 {
   "name": "my-service",
-  "hostPattern": "api\\.my-service\\.com",
+  "hostPattern": "api.my-service.com",
   "headerName": "Authorization",
   "headerTemplate": "Bearer ${value}",
   "envVars": ["MY_SERVICE_TOKEN"]
