@@ -170,8 +170,8 @@ The `workspace.json` file controls what gets injected into the workspace:
     "hosts": ["api.github.com"]
   },
   "secrets": [
-    {"type": "github", "value": "ghp_xxxxxxxxxxxx"},
-    {"type": "other", "name": "api-key", "value": "my-token", "header": "Authorization", "headerTemplate": "Bearer {{value}}", "hosts": ["api.example.com"], "path": "/v1"}
+    "my-github-token",
+    "my-api-key"
   ]
 }
 ```
@@ -217,14 +217,9 @@ kdn init /path/to/workspace --workspace-configuration /path/to/config-dir
 - `network` - Network access policy for the workspace (optional)
   - `mode` - Access mode: `"allow"` (permit all) or `"deny"` (block all except listed hosts). Defaults to `"deny"`
   - `hosts` - List of hostnames to allow in deny mode (optional, must not be set when mode is `"allow"`)
-- `secrets` - List of secrets to inject into the workspace (optional)
-  - `type` - Secret type identifier (required); use a registered service name (e.g., `"github"`) or `"other"` for custom secrets
-  - `value` - The secret value or token (required)
-  - `name` - Optional name to distinguish multiple secrets of the same type
-  - `header` - HTTP header name for injecting the secret (optional, only applicable when type is `"other"`)
-  - `headerTemplate` - Template for formatting the secret in a header, e.g., `"Bearer {{value}}"` (optional, only applicable when type is `"other"`)
-  - `hosts` - List of hosts where this secret applies (optional, only applicable when type is `"other"`)
-  - `path` - API path associated with the secret (optional, only applicable when type is `"other"`)
+- `secrets` - List of secret names to inject into the workspace (optional)
+  - Each entry is a string: the name of a secret previously created with `kdn secret create`
+  - Secret metadata (hosts, header, type, etc.) is resolved from the store at workspace creation time
   - Secrets are distinct from the `secret` field in environment variables, which references runtime secrets by name
 
 ### Agent Configuration (`agents.json`)
@@ -380,7 +375,7 @@ The Manager's `Add()` method:
   - If base has `allow` mode, the base configuration is used regardless of the override
   - If base has `deny` and override has `allow`, the base configuration is used (overrides cannot loosen the policy)
   - If both have `deny` mode, the hosts from both are merged (deduplicated, base entries first)
-- **Secrets**: Deduplicated by `(type, name)` tuple (override replaces base entries with the same key, order preserved: base first then new override entries)
+- **Secrets**: Deduplicated by name (string); base entries come first, override adds new names that are not already present
 
 **Example Merge Flow:**
 
@@ -453,10 +448,8 @@ The `Load()` method automatically validates the configuration and returns `ErrIn
 
 ### Secrets
 
-- `type` cannot be empty
-- `value` cannot be empty
-- Secrets must be unique by `(type, name)` tuple — duplicates are rejected
-- `name` is optional, but when omitted it is treated as a distinct value for uniqueness (a secret with type `"other"` and no name is different from one with type `"other"` and name `"key"`)
+- Each entry (a secret name string) cannot be empty
+- Secret names must be unique within the list — duplicate names are rejected
 
 ## Error Handling
 

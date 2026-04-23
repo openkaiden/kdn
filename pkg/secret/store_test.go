@@ -34,6 +34,7 @@ type fakeKeyring struct {
 	deleteCalls []fakeKeyringDeleteCall
 	setErr      error
 	deleteErr   error
+	getErr      error
 }
 
 type fakeKeyringSetCall struct {
@@ -45,6 +46,18 @@ type fakeKeyringSetCall struct {
 type fakeKeyringDeleteCall struct {
 	service string
 	user    string
+}
+
+func (f *fakeKeyring) Get(service, user string) (string, error) {
+	if f.getErr != nil {
+		return "", f.getErr
+	}
+	for _, call := range f.setCalls {
+		if call.service == service && call.user == user {
+			return call.password, nil
+		}
+	}
+	return "", gokeyring.ErrNotFound
 }
 
 func (f *fakeKeyring) Set(service, user, password string) error {
@@ -277,6 +290,79 @@ func TestStore_Remove_DeletesFromKeychainAndFile(t *testing.T) {
 	}
 	if len(sf.Secrets) != 0 {
 		t.Errorf("expected 0 secrets after Remove, got %d", len(sf.Secrets))
+	}
+}
+
+func TestStore_Get_ReturnsMetadataAndValue(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	kr := &fakeKeyring{}
+	st := newStoreWithKeyring(dir, kr)
+
+	if err := st.Create(CreateParams{
+		Name:           "my-gh-token",
+		Type:           "github",
+		Value:          "ghp_secret",
+		Description:    "My token",
+		Hosts:          []string{"api.github.com"},
+		Header:         "Authorization",
+		HeaderTemplate: "Bearer ${value}",
+		Envs:           []string{"GH_TOKEN"},
+	}); err != nil {
+		t.Fatalf("Create() failed: %v", err)
+	}
+
+	item, value, err := st.Get("my-gh-token")
+	if err != nil {
+		t.Fatalf("Get() error: %v", err)
+	}
+	if value != "ghp_secret" {
+		t.Errorf("Get() value = %q, want %q", value, "ghp_secret")
+	}
+	if item.Name != "my-gh-token" {
+		t.Errorf("Get() item.Name = %q, want %q", item.Name, "my-gh-token")
+	}
+	if item.Type != "github" {
+		t.Errorf("Get() item.Type = %q, want %q", item.Type, "github")
+	}
+	if item.Header != "Authorization" {
+		t.Errorf("Get() item.Header = %q, want %q", item.Header, "Authorization")
+	}
+	if len(item.Envs) != 1 || item.Envs[0] != "GH_TOKEN" {
+		t.Errorf("Get() item.Envs = %v, want [GH_TOKEN]", item.Envs)
+	}
+}
+
+func TestStore_Get_NotFound(t *testing.T) {
+	t.Parallel()
+
+	st := newStoreWithKeyring(t.TempDir(), &fakeKeyring{})
+
+	_, _, err := st.Get("nonexistent")
+	if err == nil {
+		t.Fatal("expected error when secret does not exist")
+	}
+	if !errors.Is(err, ErrSecretNotFound) {
+		t.Errorf("expected ErrSecretNotFound, got: %v", err)
+	}
+}
+
+func TestStore_Get_KeychainError(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	kr := &fakeKeyring{}
+	st := newStoreWithKeyring(dir, kr)
+
+	if err := st.Create(CreateParams{Name: "my-token", Type: "github", Value: "v"}); err != nil {
+		t.Fatalf("Create() failed: %v", err)
+	}
+	kr.getErr = os.ErrPermission
+
+	_, _, err := st.Get("my-token")
+	if err == nil {
+		t.Fatal("expected error when keychain Get fails")
 	}
 }
 

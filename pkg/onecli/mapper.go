@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"strings"
 
-	workspace "github.com/openkaiden/kdn-api/workspace-configuration/go"
+	"github.com/openkaiden/kdn/pkg/secret"
 	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
 const secretTypeOther = "other"
 
-// SecretMapper converts workspace secrets to OneCLI CreateSecretInput values.
+// SecretMapper converts stored secrets to OneCLI CreateSecretInput values.
 type SecretMapper interface {
-	Map(secret workspace.Secret) (CreateSecretInput, error)
+	Map(item secret.ListItem, value string) (CreateSecretInput, error)
 }
 
 type secretMapper struct {
@@ -45,26 +45,26 @@ func NewSecretMapper(registry secretservice.Registry) SecretMapper {
 	return &secretMapper{registry: registry}
 }
 
-// Map converts a workspace secret to a CreateSecretInput.
-// For type "other", the secret's own fields are used directly.
+// Map converts a stored secret item and its value to a CreateSecretInput.
+// For type "other", the item's own fields are used directly.
 // For all other types, the SecretService registry provides host pattern, header, and template.
-func (m *secretMapper) Map(secret workspace.Secret) (CreateSecretInput, error) {
-	if secret.Type == secretTypeOther {
-		return m.mapOtherSecret(secret)
+func (m *secretMapper) Map(item secret.ListItem, value string) (CreateSecretInput, error) {
+	if item.Type == secretTypeOther {
+		return m.mapOtherSecret(item, value)
 	}
-	return m.mapKnownSecret(secret)
+	return m.mapKnownSecret(item, value)
 }
 
-func (m *secretMapper) mapKnownSecret(secret workspace.Secret) (CreateSecretInput, error) {
-	svc, err := m.registry.Get(secret.Type)
+func (m *secretMapper) mapKnownSecret(item secret.ListItem, value string) (CreateSecretInput, error) {
+	svc, err := m.registry.Get(item.Type)
 	if err != nil {
-		return CreateSecretInput{}, fmt.Errorf("unknown secret type %q: %w", secret.Type, err)
+		return CreateSecretInput{}, fmt.Errorf("unknown secret type %q: %w", item.Type, err)
 	}
 
 	input := CreateSecretInput{
-		Name:        secretName(secret.Name, secret.Type),
+		Name:        item.Name,
 		Type:        "generic",
-		Value:       secret.Value,
+		Value:       value,
 		HostPattern: svc.HostPattern(),
 		PathPattern: svc.Path(),
 	}
@@ -79,48 +79,32 @@ func (m *secretMapper) mapKnownSecret(secret workspace.Secret) (CreateSecretInpu
 	return input, nil
 }
 
-func (m *secretMapper) mapOtherSecret(secret workspace.Secret) (CreateSecretInput, error) {
-	if secret.Hosts != nil && len(*secret.Hosts) > 1 {
-		return CreateSecretInput{}, fmt.Errorf("secret type %q supports only one host per secret; declare one secret per host (got %d hosts)", secretTypeOther, len(*secret.Hosts))
+func (m *secretMapper) mapOtherSecret(item secret.ListItem, value string) (CreateSecretInput, error) {
+	if len(item.Hosts) > 1 {
+		return CreateSecretInput{}, fmt.Errorf("secret type %q supports only one host per secret; declare one secret per host (got %d hosts)", secretTypeOther, len(item.Hosts))
+	}
+
+	hostPattern := "*"
+	if len(item.Hosts) > 0 {
+		hostPattern = item.Hosts[0]
 	}
 
 	input := CreateSecretInput{
-		Name:        secretName(secret.Name, secretTypeOther),
+		Name:        item.Name,
 		Type:        "generic",
-		Value:       secret.Value,
-		HostPattern: otherHostPattern(secret.Hosts),
-		PathPattern: derefString(secret.Path),
+		Value:       value,
+		HostPattern: hostPattern,
+		PathPattern: item.Path,
 	}
 
-	if header := derefString(secret.Header); header != "" {
+	if item.Header != "" {
 		input.InjectionConfig = &InjectionConfig{
-			HeaderName:  header,
-			ValueFormat: convertTemplate(derefString(secret.HeaderTemplate)),
+			HeaderName:  item.Header,
+			ValueFormat: convertTemplate(item.HeaderTemplate),
 		}
 	}
 
 	return input, nil
-}
-
-func secretName(name *string, fallback string) string {
-	if name != nil && *name != "" {
-		return *name
-	}
-	return fallback
-}
-
-func otherHostPattern(hosts *[]string) string {
-	if hosts != nil && len(*hosts) > 0 {
-		return (*hosts)[0]
-	}
-	return "*"
-}
-
-func derefString(s *string) string {
-	if s != nil {
-		return *s
-	}
-	return ""
 }
 
 // convertTemplate converts kdn's ${value} placeholder to OneCLI's {value} format.

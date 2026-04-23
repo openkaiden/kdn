@@ -42,6 +42,7 @@ const (
 
 // keyring is an internal interface so tests can inject a fake implementation.
 type keyring interface {
+	Get(service, user string) (string, error)
 	Set(service, user, password string) error
 	Delete(service, user string) error
 }
@@ -50,6 +51,10 @@ type keyring interface {
 type realKeyring struct{}
 
 var _ keyring = (*realKeyring)(nil)
+
+func (r *realKeyring) Get(service, user string) (string, error) {
+	return gokeyring.Get(service, user)
+}
 
 func (r *realKeyring) Set(service, user, password string) error {
 	return gokeyring.Set(service, user, password)
@@ -136,6 +141,35 @@ func (s *store) List() ([]ListItem, error) {
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	return items, nil
+}
+
+// Get returns the metadata and keychain value for the named secret.
+func (s *store) Get(name string) (ListItem, string, error) {
+	sf, err := s.loadSecretsFile()
+	if err != nil {
+		return ListItem{}, "", err
+	}
+
+	for _, rec := range sf.Secrets {
+		if rec.Name == name {
+			value, err := s.kr.Get(keyringService, name)
+			if err != nil {
+				return ListItem{}, "", fmt.Errorf("failed to get secret from keychain: %w", err)
+			}
+			return ListItem{
+				Name:           rec.Name,
+				Type:           rec.Type,
+				Description:    rec.Description,
+				Hosts:          rec.Hosts,
+				Path:           rec.Path,
+				Header:         rec.Header,
+				HeaderTemplate: rec.HeaderTemplate,
+				Envs:           rec.Envs,
+			}, value, nil
+		}
+	}
+
+	return ListItem{}, "", fmt.Errorf("secret %q: %w", name, ErrSecretNotFound)
 }
 
 // Remove deletes the secret from the system keychain and removes its metadata.

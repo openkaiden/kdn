@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	workspace "github.com/openkaiden/kdn-api/workspace-configuration/go"
+	"github.com/openkaiden/kdn/pkg/secret"
 	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
@@ -43,24 +43,22 @@ func registryWithGitHub(t *testing.T) secretservice.Registry {
 	return reg
 }
 
-func strPtr(s string) *string { return &s }
-
 func TestMapper_KnownType_GitHub(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(registryWithGitHub(t))
-	secret := workspace.Secret{
-		Type:  "github",
-		Value: "ghp_abc123",
+	item := secret.ListItem{
+		Name: "my-gh-token",
+		Type: "github",
 	}
 
-	got, err := mapper.Map(secret)
+	got, err := mapper.Map(item, "ghp_abc123")
 	if err != nil {
 		t.Fatalf("Map() error: %v", err)
 	}
 
-	if got.Name != "github" {
-		t.Errorf("Name = %q, want %q", got.Name, "github")
+	if got.Name != "my-gh-token" {
+		t.Errorf("Name = %q, want %q", got.Name, "my-gh-token")
 	}
 	if got.Type != "generic" {
 		t.Errorf("Type = %q, want %q", got.Type, "generic")
@@ -82,35 +80,16 @@ func TestMapper_KnownType_GitHub(t *testing.T) {
 	}
 }
 
-func TestMapper_KnownType_WithName(t *testing.T) {
-	t.Parallel()
-
-	mapper := NewSecretMapper(registryWithGitHub(t))
-	secret := workspace.Secret{
-		Type:  "github",
-		Value: "ghp_abc123",
-		Name:  strPtr("my-gh-token"),
-	}
-
-	got, err := mapper.Map(secret)
-	if err != nil {
-		t.Fatalf("Map() error: %v", err)
-	}
-	if got.Name != "my-gh-token" {
-		t.Errorf("Name = %q, want %q", got.Name, "my-gh-token")
-	}
-}
-
 func TestMapper_UnknownType(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(secretservice.NewRegistry())
-	secret := workspace.Secret{
-		Type:  "unknown-service",
-		Value: "token",
+	item := secret.ListItem{
+		Name: "my-token",
+		Type: "unknown-service",
 	}
 
-	_, err := mapper.Map(secret)
+	_, err := mapper.Map(item, "token")
 	if err == nil {
 		t.Fatal("expected error for unknown type")
 	}
@@ -120,18 +99,16 @@ func TestMapper_OtherType_AllFields(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(secretservice.NewRegistry())
-	hosts := []string{"api.example.com"}
-	secret := workspace.Secret{
+	item := secret.ListItem{
+		Name:           "custom-api",
 		Type:           "other",
-		Value:          "my-key-123",
-		Name:           strPtr("custom-api"),
-		Header:         strPtr("X-Api-Key"),
-		HeaderTemplate: strPtr("Token ${value}"),
-		Hosts:          &hosts,
-		Path:           strPtr("/v2"),
+		Hosts:          []string{"api.example.com"},
+		Path:           "/v2",
+		Header:         "X-Api-Key",
+		HeaderTemplate: "Token ${value}",
 	}
 
-	got, err := mapper.Map(secret)
+	got, err := mapper.Map(item, "my-key-123")
 	if err != nil {
 		t.Fatalf("Map() error: %v", err)
 	}
@@ -166,14 +143,13 @@ func TestMapper_OtherType_MultipleHosts_Error(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(secretservice.NewRegistry())
-	hosts := []string{"api.example.com", "api2.example.com"}
-	secret := workspace.Secret{
+	item := secret.ListItem{
+		Name:  "my-token",
 		Type:  "other",
-		Value: "my-key-123",
-		Hosts: &hosts,
+		Hosts: []string{"api.example.com", "api2.example.com"},
 	}
 
-	_, err := mapper.Map(secret)
+	_, err := mapper.Map(item, "my-key-123")
 	if err == nil {
 		t.Fatal("expected error for multiple hosts, got nil")
 	}
@@ -186,12 +162,12 @@ func TestMapper_OtherType_MinimalFields(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(secretservice.NewRegistry())
-	secret := workspace.Secret{
-		Type:  "other",
-		Value: "secret-val",
+	item := secret.ListItem{
+		Name: "other",
+		Type: "other",
 	}
 
-	got, err := mapper.Map(secret)
+	got, err := mapper.Map(item, "secret-val")
 	if err != nil {
 		t.Fatalf("Map() error: %v", err)
 	}
@@ -214,14 +190,13 @@ func TestMapper_OtherType_EmptyHosts(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewSecretMapper(secretservice.NewRegistry())
-	emptyHosts := []string{}
-	secret := workspace.Secret{
+	item := secret.ListItem{
+		Name:  "my-token",
 		Type:  "other",
-		Value: "val",
-		Hosts: &emptyHosts,
+		Hosts: []string{},
 	}
 
-	got, err := mapper.Map(secret)
+	got, err := mapper.Map(item, "val")
 	if err != nil {
 		t.Fatalf("Map() error: %v", err)
 	}

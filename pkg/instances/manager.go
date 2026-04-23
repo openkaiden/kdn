@@ -35,6 +35,7 @@ import (
 	"github.com/openkaiden/kdn/pkg/git"
 	"github.com/openkaiden/kdn/pkg/onecli"
 	"github.com/openkaiden/kdn/pkg/runtime"
+	"github.com/openkaiden/kdn/pkg/secret"
 	"github.com/openkaiden/kdn/pkg/secretservice"
 )
 
@@ -101,6 +102,7 @@ type manager struct {
 	runtimeRegistry       runtime.Registry
 	agentRegistry         agent.Registry
 	secretServiceRegistry secretservice.Registry
+	secretStore           secret.Store
 	gitDetector           git.Detector
 }
 
@@ -116,12 +118,13 @@ func NewManager(storageDir string) (Manager, error) {
 	}
 	agentReg := agent.NewRegistry()
 	secretServiceReg := secretservice.NewRegistry()
-	return newManagerWithFactory(storageDir, NewInstanceFromData, generator.New(), reg, agentReg, secretServiceReg, git.NewDetector())
+	secretStore := secret.NewStore(storageDir)
+	return newManagerWithFactory(storageDir, NewInstanceFromData, generator.New(), reg, agentReg, secretServiceReg, secretStore, git.NewDetector())
 }
 
 // newManagerWithFactory creates a new instance manager with a custom instance factory, generator, registry, and git detector.
 // This is unexported and primarily useful for testing with fake instances, generators, runtimes, and git detector.
-func newManagerWithFactory(storageDir string, factory InstanceFactory, gen generator.Generator, reg runtime.Registry, agentReg agent.Registry, secretServiceReg secretservice.Registry, detector git.Detector) (Manager, error) {
+func newManagerWithFactory(storageDir string, factory InstanceFactory, gen generator.Generator, reg runtime.Registry, agentReg agent.Registry, secretServiceReg secretservice.Registry, secretStore secret.Store, detector git.Detector) (Manager, error) {
 	if storageDir == "" {
 		return nil, errors.New("storage directory cannot be empty")
 	}
@@ -139,6 +142,9 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 	}
 	if secretServiceReg == nil {
 		return nil, errors.New("secret service registry cannot be nil")
+	}
+	if secretStore == nil {
+		return nil, errors.New("secret store cannot be nil")
 	}
 	if detector == nil {
 		return nil, errors.New("git detector cannot be nil")
@@ -158,6 +164,7 @@ func newManagerWithFactory(storageDir string, factory InstanceFactory, gen gener
 		runtimeRegistry:       reg,
 		agentRegistry:         agentReg,
 		secretServiceRegistry: secretServiceReg,
+		secretStore:           secretStore,
 		gitDetector:           detector,
 	}, nil
 }
@@ -293,18 +300,26 @@ func (m *manager) Add(ctx context.Context, opts AddOptions) (Instance, error) {
 	secretEnvVars := make(map[string]string)
 	if mergedConfig != nil && mergedConfig.Secrets != nil && len(*mergedConfig.Secrets) > 0 {
 		mapper := onecli.NewSecretMapper(m.secretServiceRegistry)
-		for i, s := range *mergedConfig.Secrets {
-			input, err := mapper.Map(s)
+		for i, name := range *mergedConfig.Secrets {
+			item, value, err := m.secretStore.Get(name)
 			if err != nil {
-				return nil, fmt.Errorf("failed to map secret at index %d: %w", i, err)
+				return nil, fmt.Errorf("failed to get secret %q at index %d: %w", name, i, err)
+			}
+			input, err := mapper.Map(item, value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to map secret %q at index %d: %w", name, i, err)
 			}
 			onecliSecrets = append(onecliSecrets, input)
 
-			if s.Type != "other" {
-				if svc, svcErr := m.secretServiceRegistry.Get(s.Type); svcErr == nil {
+			if item.Type != secret.TypeOther {
+				if svc, svcErr := m.secretServiceRegistry.Get(item.Type); svcErr == nil {
 					for _, envVar := range svc.EnvVars() {
 						secretEnvVars[envVar] = "placeholder"
 					}
+				}
+			} else {
+				for _, envVar := range item.Envs {
+					secretEnvVars[envVar] = "placeholder"
 				}
 			}
 		}

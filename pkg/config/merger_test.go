@@ -1011,15 +1011,11 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "gh-token-1"},
-			},
+			Secrets: &[]string{"gh-token", "slack-token"},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "slack", Value: "slack-token-1"},
-			},
+			Secrets: &[]string{"other-token"},
 		}
 
 		result := merger.Merge(base, override)
@@ -1029,130 +1025,47 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 		}
 
 		secrets := *result.Secrets
-		if len(secrets) != 2 {
-			t.Errorf("Expected 2 secrets, got %d", len(secrets))
+		if len(secrets) != 3 {
+			t.Errorf("Expected 3 secrets, got %d", len(secrets))
 		}
 
-		if secrets[0].Type != "github" || secrets[0].Value != "gh-token-1" {
-			t.Error("First secret should be from base")
+		if secrets[0] != "gh-token" {
+			t.Errorf("Expected first secret to be %q, got %q", "gh-token", secrets[0])
 		}
-		if secrets[1].Type != "slack" || secrets[1].Value != "slack-token-1" {
-			t.Error("Second secret should be from override")
+		if secrets[1] != "slack-token" {
+			t.Errorf("Expected second secret to be %q, got %q", "slack-token", secrets[1])
 		}
-	})
-
-	t.Run("override takes precedence by type", func(t *testing.T) {
-		t.Parallel()
-
-		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "old-token"},
-				{Type: "slack", Value: "keep-this"},
-			},
-		}
-
-		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "new-token"},
-			},
-		}
-
-		result := merger.Merge(base, override)
-
-		secrets := *result.Secrets
-		if len(secrets) != 2 {
-			t.Fatalf("Expected 2 secrets, got %d", len(secrets))
-		}
-
-		if secrets[0].Type != "github" || secrets[0].Value != "new-token" {
-			t.Errorf("Expected github secret to be overridden, got value %q", secrets[0].Value)
-		}
-		if secrets[1].Type != "slack" || secrets[1].Value != "keep-this" {
-			t.Error("Slack secret should be preserved from base")
+		if secrets[2] != "other-token" {
+			t.Errorf("Expected third secret to be %q, got %q", "other-token", secrets[2])
 		}
 	})
 
-	t.Run("override by type and name tuple", func(t *testing.T) {
+	t.Run("deduplication by name", func(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("api-key"), Value: "old-key"},
-				{Type: "other", Name: strPtr("db-pass"), Value: "old-db"},
-			},
+			Secrets: &[]string{"gh-token", "slack-token"},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("api-key"), Value: "new-key"},
-				{Type: "other", Name: strPtr("cache-key"), Value: "cache-val"},
-			},
+			Secrets: &[]string{"gh-token", "other-token"},
 		}
 
 		result := merger.Merge(base, override)
 
 		secrets := *result.Secrets
 		if len(secrets) != 3 {
-			t.Fatalf("Expected 3 secrets, got %d", len(secrets))
+			t.Fatalf("Expected 3 secrets (deduplication), got %d", len(secrets))
 		}
 
-		// api-key should be overridden
-		if secrets[0].Value != "new-key" {
-			t.Errorf("Expected api-key value to be overridden, got %q", secrets[0].Value)
+		if secrets[0] != "gh-token" {
+			t.Errorf("Expected first to be %q, got %q", "gh-token", secrets[0])
 		}
-		// db-pass preserved from base
-		if secrets[1].Value != "old-db" {
-			t.Errorf("Expected db-pass to be preserved, got %q", secrets[1].Value)
+		if secrets[1] != "slack-token" {
+			t.Errorf("Expected second to be %q, got %q", "slack-token", secrets[1])
 		}
-		// cache-key added from override
-		if secrets[2].Value != "cache-val" {
-			t.Errorf("Expected cache-key to be added, got %q", secrets[2].Value)
-		}
-	})
-
-	t.Run("same type different names are distinct", func(t *testing.T) {
-		t.Parallel()
-
-		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("key-a"), Value: "val-a"},
-			},
-		}
-
-		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("key-b"), Value: "val-b"},
-			},
-		}
-
-		result := merger.Merge(base, override)
-
-		secrets := *result.Secrets
-		if len(secrets) != 2 {
-			t.Fatalf("Expected 2 secrets (different names), got %d", len(secrets))
-		}
-	})
-
-	t.Run("nil name vs named are distinct", func(t *testing.T) {
-		t.Parallel()
-
-		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "unnamed-token"},
-			},
-		}
-
-		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Name: strPtr("org-token"), Value: "named-token"},
-			},
-		}
-
-		result := merger.Merge(base, override)
-
-		secrets := *result.Secrets
-		if len(secrets) != 2 {
-			t.Fatalf("Expected 2 secrets (nil name != named), got %d", len(secrets))
+		if secrets[2] != "other-token" {
+			t.Errorf("Expected third to be %q, got %q", "other-token", secrets[2])
 		}
 	})
 
@@ -1160,18 +1073,11 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "gh"},
-				{Type: "slack", Value: "sl"},
-				{Type: "other", Name: strPtr("x"), Value: "x-val"},
-			},
+			Secrets: &[]string{"a", "b", "c"},
 		}
 
 		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "slack", Value: "sl-override"},
-				{Type: "other", Name: strPtr("y"), Value: "y-val"},
-			},
+			Secrets: &[]string{"b", "d"},
 		}
 
 		result := merger.Merge(base, override)
@@ -1181,18 +1087,11 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 			t.Fatalf("Expected 4 secrets, got %d", len(secrets))
 		}
 
-		// Order: github (base), slack (base pos, override value), other/x (base), other/y (override)
-		if secrets[0].Type != "github" {
-			t.Errorf("Expected first to be github, got %s", secrets[0].Type)
-		}
-		if secrets[1].Type != "slack" || secrets[1].Value != "sl-override" {
-			t.Errorf("Expected second to be slack with overridden value")
-		}
-		if secrets[2].Type != "other" || *secrets[2].Name != "x" {
-			t.Errorf("Expected third to be other/x")
-		}
-		if secrets[3].Type != "other" || *secrets[3].Name != "y" {
-			t.Errorf("Expected fourth to be other/y")
+		expected := []string{"a", "b", "c", "d"}
+		for i, want := range expected {
+			if secrets[i] != want {
+				t.Errorf("secrets[%d] = %q, want %q", i, secrets[i], want)
+			}
 		}
 	})
 
@@ -1201,9 +1100,7 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 
 		base := &workspace.WorkspaceConfiguration{}
 		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "token"},
-			},
+			Secrets: &[]string{"my-token"},
 		}
 
 		result := merger.Merge(base, override)
@@ -1217,9 +1114,7 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "github", Value: "token"},
-			},
+			Secrets: &[]string{"my-token"},
 		}
 		override := &workspace.WorkspaceConfiguration{}
 
@@ -1234,10 +1129,10 @@ func TestMerger_Merge_Secrets(t *testing.T) {
 		t.Parallel()
 
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{},
+			Secrets: &[]string{},
 		}
 		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{},
+			Secrets: &[]string{},
 		}
 
 		result := merger.Merge(base, override)
@@ -1253,64 +1148,21 @@ func TestMerger_Merge_Secrets_DeepCopy(t *testing.T) {
 
 	merger := NewMerger()
 
-	t.Run("mutating merged secret Hosts does not affect base", func(t *testing.T) {
+	t.Run("mutating merged secrets does not affect base", func(t *testing.T) {
 		t.Parallel()
 
-		hosts := []string{"example.com"}
 		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("api"), Value: "token", Hosts: &hosts},
-			},
+			Secrets: &[]string{"original"},
 		}
 
 		result := merger.Merge(base, nil)
 
-		// Mutate the result's Hosts slice
-		(*result.Secrets)[0].Hosts = &[]string{"other.com"}
+		// Mutate the result's slice
+		(*result.Secrets)[0] = "mutated"
 
 		// Base must be unaffected
-		if (*(*base.Secrets)[0].Hosts)[0] != "example.com" {
-			t.Error("Mutating merged secret Hosts affected the base input")
-		}
-	})
-
-	t.Run("mutating merged secret Name does not affect base", func(t *testing.T) {
-		t.Parallel()
-
-		base := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("original"), Value: "token"},
-			},
-		}
-
-		result := merger.Merge(base, nil)
-
-		// Mutate the result's Name
-		*(*result.Secrets)[0].Name = "mutated"
-
-		// Base must be unaffected
-		if *(*base.Secrets)[0].Name != "original" {
-			t.Error("Mutating merged secret Name affected the base input")
-		}
-	})
-
-	t.Run("mutating merged secret Header does not affect override", func(t *testing.T) {
-		t.Parallel()
-
-		override := &workspace.WorkspaceConfiguration{
-			Secrets: &[]workspace.Secret{
-				{Type: "other", Name: strPtr("api"), Value: "token", Header: strPtr("Authorization")},
-			},
-		}
-
-		result := merger.Merge(nil, override)
-
-		// Mutate the result's Header
-		*(*result.Secrets)[0].Header = "X-Custom"
-
-		// Override must be unaffected
-		if *(*override.Secrets)[0].Header != "Authorization" {
-			t.Error("Mutating merged secret Header affected the override input")
+		if (*base.Secrets)[0] != "original" {
+			t.Error("Mutating merged secrets affected the base input")
 		}
 	})
 }

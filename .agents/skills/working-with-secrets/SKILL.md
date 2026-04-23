@@ -17,7 +17,7 @@ The secrets system uses a two-layer architecture: a **Store** that persists secr
 
 ## Key Components
 
-- **Store interface** (`pkg/secret/secret.go`): `Create(CreateParams) error`, `Remove(name string) error` and `List() ([]ListItem, error)`
+- **Store interface** (`pkg/secret/secret.go`): `Create(CreateParams) error`, `List() ([]ListItem, error)`, `Get(name string) (ListItem, string, error)`, `Remove(name string) error`
 - **Store implementation** (`pkg/secret/store.go`): writes the value to the keychain, metadata to `secrets.json`
 - **SecretService interface** (`pkg/secretservice/secretservice.go`): describes a named type — host pattern, path, header name, header template, env vars
 - **Registry** (`pkg/secretservice/registry.go`): maps names to `SecretService` implementations
@@ -77,6 +77,15 @@ To retrieve all stored secrets (metadata only — no secret values):
 items, err := store.List()
 // items is []secret.ListItem{Name, Type, Description, Hosts, Path, Header, HeaderTemplate, Envs}
 ```
+
+To retrieve a single secret's metadata and value (used when resolving secrets at workspace creation time):
+
+```go
+item, value, err := store.Get("my-token")
+// item is secret.ListItem (metadata); value is the keychain secret
+```
+
+`Get` returns `ErrSecretNotFound` if no secret with the given name exists.
 
 To remove a secret:
 

@@ -1219,9 +1219,9 @@ func TestConfig_Load_Secrets_Valid(t *testing.T) {
 	configDir := t.TempDir()
 	workspaceJSON := `{
   "secrets": [
-    {"type": "github", "value": "gh-token"},
-    {"type": "slack", "value": "slack-token"},
-    {"type": "other", "name": "api-key", "value": "my-key", "header": "Authorization", "headerTemplate": "Bearer {{value}}", "hosts": ["api.example.com"], "path": "/v1"}
+    "gh-token",
+    "slack-token",
+    "api-key"
   ]
 }`
 	err := os.WriteFile(filepath.Join(configDir, WorkspaceConfigFile), []byte(workspaceJSON), 0644)
@@ -1253,24 +1253,14 @@ func TestConfig_Load_Secrets_Invalid(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:       "secret with empty type",
-			json:       `{"secrets": [{"type": "", "value": "token"}]}`,
-			wantErrMsg: "secret at index 0 has empty type",
+			name:       "secret with empty name",
+			json:       `{"secrets": [""]}`,
+			wantErrMsg: "secret at index 0 has empty name",
 		},
 		{
-			name:       "secret with empty value",
-			json:       `{"secrets": [{"type": "github", "value": ""}]}`,
-			wantErrMsg: "secret at index 0 has empty value",
-		},
-		{
-			name:       "duplicate secrets by type only",
-			json:       `{"secrets": [{"type": "github", "value": "token1"}, {"type": "github", "value": "token2"}]}`,
-			wantErrMsg: "secret with type \"github\" (index 1) is a duplicate of index 0",
-		},
-		{
-			name:       "duplicate secrets by type and name",
-			json:       `{"secrets": [{"type": "other", "name": "key", "value": "val1"}, {"type": "other", "name": "key", "value": "val2"}]}`,
-			wantErrMsg: "secret with type \"other\" and name \"key\" (index 1) is a duplicate of index 0",
+			name:       "duplicate secret names",
+			json:       `{"secrets": ["my-token", "my-token"]}`,
+			wantErrMsg: "secret \"my-token\" (index 1) is a duplicate of index 0",
 		},
 	}
 
@@ -1303,14 +1293,14 @@ func TestConfig_Load_Secrets_Invalid(t *testing.T) {
 	}
 }
 
-func TestConfig_Load_Secrets_SameTypeDifferentNames(t *testing.T) {
+func TestConfig_Load_Secrets_MultipleNames(t *testing.T) {
 	t.Parallel()
 
 	configDir := t.TempDir()
 	workspaceJSON := `{
   "secrets": [
-    {"type": "other", "name": "key-a", "value": "val-a"},
-    {"type": "other", "name": "key-b", "value": "val-b"}
+    "key-a",
+    "key-b"
   ]
 }`
 	err := os.WriteFile(filepath.Join(configDir, WorkspaceConfigFile), []byte(workspaceJSON), 0644)
@@ -1329,7 +1319,7 @@ func TestConfig_Load_Secrets_SameTypeDifferentNames(t *testing.T) {
 	}
 
 	if workspaceCfg.Secrets == nil || len(*workspaceCfg.Secrets) != 2 {
-		t.Errorf("Expected 2 secrets with same type but different names, got %v", workspaceCfg.Secrets)
+		t.Errorf("Expected 2 secrets, got %v", workspaceCfg.Secrets)
 	}
 }
 

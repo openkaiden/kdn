@@ -43,6 +43,10 @@ func (f *fakeListStore) List() ([]secret.ListItem, error) {
 	return f.items, f.err
 }
 
+func (f *fakeListStore) Get(name string) (secret.ListItem, string, error) {
+	return secret.ListItem{}, "", nil
+}
+
 func (f *fakeListStore) Remove(name string) error { return nil }
 
 func TestSecretListCmd(t *testing.T) {

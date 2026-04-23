@@ -51,6 +51,10 @@ func (f *fakeStore) List() ([]secret.ListItem, error) {
 	return nil, nil
 }
 
+func (f *fakeStore) Get(name string) (secret.ListItem, string, error) {
+	return secret.ListItem{}, "", nil
+}
+
 // buildPreRunCmd creates a cobra.Command that mirrors the flag set seen by
 // preRun when called through the real command tree.
 func buildPreRunCmd(storageDir string) *cobra.Command {
