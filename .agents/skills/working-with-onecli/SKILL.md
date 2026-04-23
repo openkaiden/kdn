@@ -24,7 +24,7 @@ All four public types are interfaces; concrete implementations are unexported.
 |-----------|---------|---------|
 | `Client` | `NewClient(baseURL, apiKey)` | Raw CRUD against the OneCLI API |
 | `CredentialProvider` | `NewCredentialProvider(baseURL)` | Retrieves the `oc_` API key from `/api/user/api-key` |
-| `SecretMapper` | `NewSecretMapper(registry)` | Converts `workspace.Secret` → `CreateSecretInput` |
+| `SecretMapper` | `NewSecretMapper(registry)` | Converts `secret.ListItem` + value → `CreateSecretInput` |
 | `SecretProvisioner` | `NewSecretProvisioner(client)` | Creates or updates secrets via `Client`, handles 409 conflicts |
 
 ## Client
@@ -104,11 +104,11 @@ apiKey, err := provider.APIKey(ctx)
 
 ## SecretMapper
 
-`NewSecretMapper(registry secretservice.Registry) SecretMapper` — converts `workspace.Secret` values (from `workspace.json`) into `CreateSecretInput` values ready for the API.
+`NewSecretMapper(registry secretservice.Registry) SecretMapper` — converts a `secret.ListItem` (metadata from the Store) and its plaintext value into a `CreateSecretInput` ready for the OneCLI API.
 
 ```go
 mapper := onecli.NewSecretMapper(secretServiceRegistry)
-inputs, err := mapper.Map(secret)  // returns []CreateSecretInput
+inputs, err := mapper.Map(item, value) // item: secret.ListItem, value: string from keychain; returns []CreateSecretInput
 ```
 
 ### Mapping rules
@@ -150,14 +150,19 @@ The Podman runtime is the primary consumer of this package. The flow during work
 
 ### Secret flow from manager (`pkg/instances/manager.go`)
 
-The instances manager converts workspace-level secrets before calling the runtime:
+The instances manager resolves each secret name from the Store, maps it to a `CreateSecretInput`, and collects any associated environment variable names:
 
 ```go
-mapper := onecli.NewSecretMapper(secretServiceRegistry)
-for _, s := range workspaceConfig.Secrets {
-    inputs, err := mapper.Map(s)  // []CreateSecretInput — one per host for type=other
-    // collect env vars, then append inputs... to runtime.CreateParams.OnecliSecrets
+mapper := onecli.NewSecretMapper(m.secretServiceRegistry)
+for _, name := range *mergedConfig.Secrets {
+    item, value, err := m.secretStore.Get(name)   // metadata + plaintext value
+    inputs, err := mapper.Map(item, value)         // → []CreateSecretInput — one per host for type=other
+    onecliSecrets = append(onecliSecrets, inputs...)
+
+    // Also collect env var names exposed by this secret type
+    // (used by SecretEnvVars in runtime.CreateParams)
 }
+// runtime.CreateParams.OnecliSecrets = onecliSecrets
 ```
 
 ## Testing

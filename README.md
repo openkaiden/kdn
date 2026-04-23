@@ -670,19 +670,24 @@ kdn terminal my-project
 
 This scenario demonstrates how to make a GitHub token available inside workspaces using the multi-level configuration system — either globally for all projects or scoped to a specific project.
 
+kdn has a built-in `github` secret service. The token is stored once with `kdn secret create` and referenced by name in any configuration level. At workspace creation time, kdn provisions the token into OneCLI, which injects it as a `Bearer` Authorization header for requests to `api.github.com`. It also sets `GH_TOKEN` and `GITHUB_TOKEN` as placeholder environment variables so that `gh` CLI and other GitHub-aware tools detect that credentials are configured.
+
+**Step 1: Create the secret**
+
+```bash
+kdn secret create my-github-token --type github --value ghp_mytoken
+```
+
+The token is stored securely in the system keychain. The config files only hold the name.
+
 **For all projects**
 
-Edit `~/.kdn/config/projects.json` and add the token and your git configuration under the global `""` key:
+Edit `~/.kdn/config/projects.json` and add the secret name and your git configuration under the global `""` key:
 
 ```json
 {
   "": {
-    "environment": [
-      {
-        "name": "GH_TOKEN",
-        "secret": "github-token"
-      }
-    ],
+    "secrets": ["my-github-token"],
     "mounts": [
       {"host": "$HOME/.gitconfig", "target": "$HOME/.gitconfig", "ro": true}
     ]
@@ -690,7 +695,7 @@ Edit `~/.kdn/config/projects.json` and add the token and your git configuration 
 }
 ```
 
-The `GH_TOKEN` variable is automatically picked up by the `gh` CLI and other GitHub-aware tools running inside the workspace. The `$HOME/.gitconfig` mount makes your git identity (name, email, aliases, etc.) available to git commands run by the agent.
+The `$HOME/.gitconfig` mount makes your git identity (name, email, aliases, etc.) available to git commands run by the agent.
 
 **For a specific project**
 
@@ -699,12 +704,7 @@ Use the project identifier as the key instead. The identifier is the git remote 
 ```json
 {
   "https://github.com/my-org/my-repo/": {
-    "environment": [
-      {
-        "name": "GH_TOKEN",
-        "secret": "github-token"
-      }
-    ]
+    "secrets": ["my-github-token"]
   }
 }
 ```
@@ -713,50 +713,28 @@ This injects the token only when working on workspaces that belong to `https://g
 
 **Both at once**
 
-You can combine global and project-specific entries in the same file. The project-specific value takes precedence over the global one if both define the same variable:
+If you need different tokens for different projects, create a secret for each and reference them per entry:
+
+```bash
+kdn secret create my-github-token-default --type github --value ghp_default
+kdn secret create my-github-token-private --type github --value ghp_private
+```
 
 ```json
 {
   "": {
-    "environment": [
-      {
-        "name": "GH_TOKEN",
-        "secret": "github-token-default"
-      }
-    ]
+    "secrets": ["my-github-token-default"]
   },
   "https://github.com/my-org/my-private-repo/": {
-    "environment": [
-      {
-        "name": "GH_TOKEN",
-        "secret": "github-token-private"
-      }
-    ]
+    "secrets": ["my-github-token-private"]
   }
 }
 ```
 
-**Creating the secret**
-
-How secrets are created depends on the runtime being used. The `secret` field value is the name under which the secret is registered with that runtime.
-
-For the **Podman runtime**, create the secret once on your host machine using `podman secret create` before registering the workspace:
-
-```bash
-# Create the secret from an environment variable
-echo "$GITHUB_TOKEN" | podman secret create github-token -
-
-# Or create it from a file
-podman secret create github-token /path/to/token-file
-```
-
-The secret name (`github-token` here) must match the `secret` field value in your configuration. At workspace creation time, kdn passes `--secret github-token,type=env,target=GH_TOKEN` to Podman, which injects the secret value as the `GH_TOKEN` environment variable inside the container.
-
-Podman secrets are stored locally on the host and never written to the container image.
-
 **Notes:**
 
-- The `secret` field references a secret by name rather than embedding the token value directly, keeping credentials out of the configuration file
+- The token value never appears in configuration files — only the secret name does
+- `gh` CLI and git will see `GH_TOKEN`/`GITHUB_TOKEN` set to a placeholder value, signalling that credentials are available; OneCLI injects the real token as a `Bearer` header on actual requests to `api.github.com`
 - The project identifier used as the key must match what kdn detected during `init` — run `kdn list -o json` to see the project field for each registered workspace
 - Configuration changes in `projects.json` take effect the next time you run `kdn init` for that workspace; already-registered workspaces need to be removed and re-registered
 
@@ -1585,10 +1563,7 @@ The `workspace.json` file uses a nested JSON structure:
     "mode": "deny",
     "hosts": ["api.github.com"]
   },
-  "secrets": [
-    {"type": "github", "value": "ghp_xxxxxxxxxxxx"},
-    {"type": "other", "name": "api-key", "value": "my-token", "header": "Authorization", "headerTemplate": "Bearer {{value}}", "hosts": ["api.example.com"], "path": "/v1"}
-  ]
+  "secrets": ["my-github-token", "my-api-key"]
 }
 ```
 
@@ -1620,9 +1595,11 @@ Define environment variables that will be set in the workspace runtime environme
 - `value` (optional) - Hardcoded value for the variable
   - Mutually exclusive with `secret`
   - Empty strings are allowed
-- `secret` (optional) - Reference to a secret containing the value
+- `secret` (optional) - Reference to a runtime secret (e.g., a Podman secret) containing the value; the runtime injects it as an environment variable inside the workspace
   - Mutually exclusive with `value`
   - Cannot be empty
+  - Use this when a local tool inside the workspace needs the credential via an environment variable
+  - For credentials used in outbound network requests, use the `secrets` list field and `kdn secret create` instead — those are injected as HTTP headers by OneCLI
 
 **Validation Rules:**
 - Variable name cannot be empty
@@ -1787,40 +1764,21 @@ Control network access for the workspace. By default, network access is denied (
 
 ### Secrets
 
-Configure secrets to inject into the workspace. Secrets are typed credentials (e.g., API tokens) that can be associated with specific hosts and HTTP headers. This is distinct from the `secret` field in environment variables, which references runtime secrets by name.
+Configure secrets to inject into the workspace. Each entry is the name of a secret previously created with `kdn secret create`. At workspace creation time, kdn looks up the secret value from the system keychain and provisions it into the workspace via OneCLI, which injects it as an HTTP header into matching outbound requests. This is distinct from the `secret` field in environment variables, which references runtime secrets by name for environment variable injection.
 
 **Structure:**
 ```json
 {
-  "secrets": [
-    {"type": "github", "value": "ghp_xxxxxxxxxxxx"},
-    {
-      "type": "other",
-      "name": "api-key",
-      "value": "my-token",
-      "header": "Authorization",
-      "headerTemplate": "Bearer {{value}}",
-      "hosts": ["api.example.com"],
-      "path": "/v1"
-    }
-  ]
+  "secrets": ["my-github-token", "my-api-key"]
 }
 ```
 
 **Fields:**
-- `type` (required) - Secret type identifier; use a registered service name (e.g., `"github"`) or `"other"` for custom secrets
-- `value` (required) - The secret value or token
-- `name` (optional) - Name to distinguish multiple secrets of the same type
-- `header` (optional) - HTTP header name for injecting the secret (only applicable when type is `"other"`)
-- `headerTemplate` (optional) - Template for formatting the secret in a header (e.g., `"Bearer {{value}}"`) (only applicable when type is `"other"`)
-- `hosts` (optional) - List of hosts where this secret applies (only applicable when type is `"other"`)
-- `path` (optional) - API path associated with the secret (only applicable when type is `"other"`)
+- Each entry is a secret name (string) referencing a secret stored with `kdn secret create`
 
 **Validation Rules:**
-- `type` cannot be empty
-- `value` cannot be empty
-- Secrets are deduplicated by the `(type, name)` tuple — two secrets with the same type and name are rejected as duplicates
-- `name` is optional, but when omitted it is treated as a distinct value for uniqueness (a secret with type `"other"` and no name is different from one with type `"other"` and name `"key"`)
+- Secret names cannot be empty
+- Duplicate names within the list are rejected
 
 ### Configuration Validation
 
@@ -1946,16 +1904,7 @@ mount at index 0 is missing host
 **Secrets:**
 ```json
 {
-  "secrets": [
-    {"type": "github", "value": "ghp_xxxxxxxxxxxx"},
-    {
-      "type": "other",
-      "name": "internal-api",
-      "value": "my-token",
-      "header": "X-API-Key",
-      "hosts": ["internal.company.com"]
-    }
-  ]
+  "secrets": ["my-github-token", "my-internal-api"]
 }
 ```
 
@@ -1996,9 +1945,7 @@ mount at index 0 is missing host
     "mode": "deny",
     "hosts": ["api.github.com"]
   },
-  "secrets": [
-    {"type": "github", "value": "ghp_xxxxxxxxxxxx"}
-  ]
+  "secrets": ["my-github-token"]
 }
 ```
 
@@ -2219,10 +2166,10 @@ kdn init --runtime podman --project my-custom-project --agent goose
 - Example: If workspace config denies all except `api.github.com` and agent config allows all, the final result is deny with `api.github.com` allowed (workspace policy wins)
 
 **Secrets:**
-- Secrets are deduplicated by `(type, name)` tuple
-- Later configurations override earlier ones with the same `(type, name)` key
-- Order is preserved: base secrets first, then new secrets from override
-- Example: If workspace defines a `github` secret and agent config also defines a `github` secret (same type, no name), the agent config's version is used
+- Secrets are deduplicated by name
+- First occurrence wins (base secrets take precedence); later configs only add unseen names
+- Order is preserved: base secrets first, then new unique secrets from overrides
+- Example: If workspace defines `"my-github-token"` and agent config also defines `"my-github-token"`, the workspace entry is kept and the agent config entry is ignored
 
 ### Configuration Files Don't Exist?
 
@@ -2282,6 +2229,262 @@ The system works without any configuration files and merges only the ones that e
 - Environment: `NODE_ENV=development`, `DEBUG=true`, `CLAUDE_VERBOSE=true`
 - Mounts: `$HOME/.gitconfig`, `$HOME/.ssh`
 
+## Secret Commands
+
+kdn manages two related concepts for injecting credentials into workspaces:
+
+- **Secret services** — Built-in definitions that describe how a credential is injected into outbound HTTP requests. Each service specifies the host pattern to match, the HTTP header to set, and the header value template. Use `kdn service list` to see the available services.
+- **Secrets** — Named credential entries created with `kdn secret create`. Each secret has a type (a service name or `other`), a value stored securely in the system keychain, and optional metadata. Secrets are referenced by name in workspace configuration.
+
+**Workflow:**
+1. Run `kdn service list` to see available service types (e.g., `github`)
+2. Create a secret: `kdn secret create my-github-token --type github --value ghp_xxx`
+3. Reference the secret by name in workspace configuration: `"secrets": ["my-github-token"]`
+
+**Note:** The `secret` field on environment variable entries (e.g., `{"name": "GH_TOKEN", "secret": "github-token"}`) is a separate mechanism that references runtime secrets (such as Podman secrets) for injecting values as environment variables. It is useful when a local tool inside the workspace needs a credential via an environment variable. For credentials used in outbound network requests, use the Secret abstraction described here instead — secrets are injected as HTTP headers by OneCLI and are not exposed as environment variables.
+
+### `service list` - List Registered Services
+
+Lists all secret services available for workspace configuration.
+
+#### Usage
+
+```bash
+kdn service list [flags]
+```
+
+#### Flags
+
+- `--output, -o <format>` - Output format (supported: `json`)
+
+#### Examples
+
+**List all services (human-readable table):**
+```bash
+kdn service list
+```
+Output:
+```text
+NAME    HOST PATTERN       PATH  HEADER          HEADER TEMPLATE    ENV VARS
+github  api\.github\.com         Authorization   Bearer ${value}    GH_TOKEN, GITHUB_TOKEN
+```
+
+**List services in JSON format:**
+```bash
+kdn service list --output json
+```
+Output:
+```json
+{
+  "items": [
+    {
+      "name": "github",
+      "hostPattern": "api\\.github\\.com",
+      "headerName": "Authorization",
+      "headerTemplate": "Bearer ${value}",
+      "envVars": ["GH_TOKEN", "GITHUB_TOKEN"]
+    }
+  ]
+}
+```
+
+**List using short flag:**
+```bash
+kdn service list -o json
+```
+
+#### Notes
+
+- Services are defined in the embedded configuration and are always available regardless of runtime or environment
+- Each service describes how to inject credentials into HTTP requests for matching hosts
+
+### `secret create` - Create a New Secret
+
+Creates a new secret and stores its value securely in the system keychain. Non-sensitive metadata (type, hosts, path, header template, envs) is persisted in the kdn storage directory.
+
+#### Usage
+
+```bash
+kdn secret create <name> [flags]
+```
+
+#### Arguments
+
+- `name` - Unique name to identify this secret
+
+#### Flags
+
+- `--type <type>` - Type of secret: a registered service name (e.g., `github`) or `other` (required)
+- `--value <value>` - Secret value to store in the system keychain (required)
+- `--description <text>` - Optional human-readable description
+- `--host <pattern>` - Host pattern (required for `--type=other`; can be specified multiple times)
+- `--header <name>` - HTTP header name (required for `--type=other`)
+- `--headerTemplate <template>` - HTTP header value template using `${value}` as placeholder (optional, for `--type=other`)
+- `--path <path>` - URL path restriction (optional, for `--type=other`)
+- `--env <name>` - Environment variable name to expose the secret value (optional, for `--type=other`; can be specified multiple times)
+- `--output, -o <format>` - Output format (supported: `json`)
+- `--storage <path>` - Storage directory for kdn data (default: `$HOME/.kdn`)
+
+#### Examples
+
+**Create a GitHub token secret:**
+```bash
+kdn secret create my-github-token --type github --value ghp_mytoken
+```
+Output:
+```text
+Secret "my-github-token" created successfully
+```
+
+**Create a custom secret with all descriptor flags:**
+```bash
+kdn secret create my-api-key --type other --value secret123 \
+  --host api.example.com --host dev.example.com \
+  --path /api/v1 \
+  --header Authorization --headerTemplate "Bearer ${value}" \
+  --env MY_API_KEY --env API_KEY
+```
+
+**Create a custom secret with only required flags:**
+```bash
+kdn secret create my-api-key --type other --value secret123 \
+  --host api.example.com --header Authorization
+```
+
+**Create a secret with JSON output:**
+```bash
+kdn secret create my-github-token --type github --value ghp_mytoken --output json
+```
+Output:
+```json
+{
+  "name": "my-github-token"
+}
+```
+
+#### Notes
+
+- `--type` must be a registered service name (use `kdn service list` to see available types) or `other`
+- For `--type=other`, `--host` and `--header` are required; all other descriptor flags are optional
+- For named types (e.g., `github`), the descriptor flags (`--host`, `--header`, `--headerTemplate`, `--env`, `--path`) must not be specified — those are defined by the service
+- The secret value is stored in the system keychain (GNOME Keyring on Linux, Keychain on macOS, DPAPI on Windows) and never written to disk in plain text
+- **JSON error handling**: When `--output json` is used, errors are written to stdout (not stderr) in JSON format, and the CLI exits with code 1. Always check the exit code to determine success/failure
+
+### `secret list` - List All Secrets
+
+Lists all secrets stored in the kdn storage directory.
+
+#### Usage
+
+```bash
+kdn secret list [flags]
+```
+
+#### Flags
+
+- `--output, -o <format>` - Output format (supported: `json`)
+- `--storage <path>` - Storage directory for kdn data (default: `$HOME/.kdn`)
+
+#### Examples
+
+**List all secrets (human-readable table):**
+```bash
+kdn secret list
+```
+Output:
+```text
+NAME              TYPE    DESCRIPTION
+my-github-token   github
+my-api-key        other   Internal API key
+```
+
+**List secrets in JSON format:**
+```bash
+kdn secret list --output json
+```
+Output:
+```json
+{
+  "items": [
+    {
+      "name": "my-github-token",
+      "type": "github",
+      "description": ""
+    },
+    {
+      "name": "my-api-key",
+      "type": "other",
+      "description": "Internal API key",
+      "hosts": ["api.example.com"],
+      "header": "Authorization",
+      "headerTemplate": "Bearer ${value}"
+    }
+  ]
+}
+```
+
+**List using short flag:**
+```bash
+kdn secret list -o json
+```
+
+#### Notes
+
+- Only metadata is listed; secret values are never displayed
+- **JSON error handling**: When `--output json` is used, errors are written to stdout (not stderr) in JSON format, and the CLI exits with code 1. Always check the exit code to determine success/failure
+
+### `secret remove` - Remove a Secret
+
+Removes a secret from the system keychain and from the kdn storage directory.
+
+#### Usage
+
+```bash
+kdn secret remove <name> [flags]
+```
+
+#### Arguments
+
+- `name` - Name of the secret to remove
+
+#### Flags
+
+- `--output, -o <format>` - Output format (supported: `json`)
+- `--storage <path>` - Storage directory for kdn data (default: `$HOME/.kdn`)
+
+#### Examples
+
+**Remove a secret by name:**
+```bash
+kdn secret remove my-github-token
+```
+Output:
+```text
+Secret "my-github-token" removed successfully
+```
+
+**Remove a secret with JSON output:**
+```bash
+kdn secret remove my-github-token --output json
+```
+Output:
+```json
+{
+  "name": "my-github-token"
+}
+```
+
+**Remove using the alias:**
+```bash
+kdn secret rm my-github-token
+```
+
+#### Notes
+
+- Removing a secret also deletes its value from the system keychain
+- Workspaces that reference the removed secret by name will fail to start until a new secret with the same name is created
+- **JSON error handling**: When `--output json` is used, errors are written to stdout (not stderr) in JSON format, and the CLI exits with code 1. Always check the exit code to determine success/failure
+
 ## Commands
 
 ### `info` - Display Information About kdn
@@ -2340,61 +2543,6 @@ kdn info -o json
 - Agents are discovered from runtimes that support agent configuration (e.g., the Podman runtime reports agents from its configuration files)
 - Runtimes are listed based on availability in the current environment (e.g., the Podman runtime only appears if the `podman` CLI is installed)
 - **JSON error handling**: When `--output json` is used, errors are written to stdout (not stderr) in JSON format, and the CLI exits with code 1. Always check the exit code to determine success/failure
-
-### `service list` - List Registered Services
-
-Lists all secret services available for workspace configuration.
-
-#### Usage
-
-```bash
-kdn service list [flags]
-```
-
-#### Flags
-
-- `--output, -o <format>` - Output format (supported: `json`)
-
-#### Examples
-
-**List all services (human-readable table):**
-```bash
-kdn service list
-```
-Output:
-```text
-NAME    HOST PATTERN       PATH  HEADER          HEADER TEMPLATE    ENV VARS
-github  api\.github\.com         Authorization   Bearer ${value}    GH_TOKEN, GITHUB_TOKEN
-```
-
-**List services in JSON format:**
-```bash
-kdn service list --output json
-```
-Output:
-```json
-{
-  "items": [
-    {
-      "name": "github",
-      "hostPattern": "api\\.github\\.com",
-      "headerName": "Authorization",
-      "headerTemplate": "Bearer ${value}",
-      "envVars": ["GH_TOKEN", "GITHUB_TOKEN"]
-    }
-  ]
-}
-```
-
-**List using short flag:**
-```bash
-kdn service list -o json
-```
-
-#### Notes
-
-- Services are defined in the embedded configuration and are always available regardless of runtime or environment
-- Each service describes how to inject credentials into HTTP requests for matching hosts
 
 ### `init` - Register a New Workspace
 
