@@ -85,6 +85,10 @@ type CreateParams struct {
 	// for the "github" secret type) and injected into the workspace container so
 	// that CLI tools detect a configured credential. Real auth goes through OneCLI proxy.
 	SecretEnvVars map[string]string
+
+	// ProjectID is the project identifier used to load per-project workspace
+	// configuration (e.g. network policy) during subsequent Start() calls.
+	ProjectID string
 }
 
 // RuntimeInfo contains information about a runtime instance.
