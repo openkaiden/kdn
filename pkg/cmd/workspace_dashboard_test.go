@@ -69,6 +69,23 @@ func TestWorkspaceDashboardCmd_PreRun(t *testing.T) {
 			t.Errorf("Expected nameOrID to be 'my-workspace', got %s", c.nameOrID)
 		}
 	})
+
+	t.Run("returns error when storage flag is not registered", func(t *testing.T) {
+		t.Parallel()
+
+		c := &workspaceDashboardCmd{}
+		cmd := &cobra.Command{}
+		// Intentionally omit registering the "storage" flag
+
+		err := c.preRun(cmd, []string{"my-workspace"})
+		if err == nil {
+			t.Fatal("Expected error when storage flag is not registered, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "failed to read --storage flag") {
+			t.Errorf("Expected 'failed to read --storage flag' error, got: %v", err)
+		}
+	})
 }
 
 func TestWorkspaceDashboardCmd_E2E(t *testing.T) {
