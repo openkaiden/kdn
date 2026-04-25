@@ -181,8 +181,8 @@ func TestServiceListCmd_E2E(t *testing.T) {
 		for _, svc := range response.Items {
 			if svc.Name == "github" {
 				found = true
-				if svc.HostPattern != "api.github.com" {
-					t.Errorf("Expected HostPattern %q, got %q", "api.github.com", svc.HostPattern)
+				if len(svc.HostsPatterns) == 0 || svc.HostsPatterns[0] != "api.github.com" {
+					t.Errorf("Expected HostsPatterns %v, got %v", []string{"api.github.com"}, svc.HostsPatterns)
 				}
 				if svc.HeaderName != "Authorization" {
 					t.Errorf("Expected HeaderName %q, got %q", "Authorization", svc.HeaderName)

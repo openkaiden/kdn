@@ -28,19 +28,19 @@ import (
 // fakeSecretService is a test implementation of the SecretService interface
 type fakeSecretService struct {
 	name           string
-	hostPattern    string
+	hostsPatterns  []string
 	path           string
 	envVars        []string
 	headerName     string
 	headerTemplate string
 }
 
-func (f *fakeSecretService) Name() string           { return f.name }
-func (f *fakeSecretService) HostPattern() string    { return f.hostPattern }
-func (f *fakeSecretService) Path() string           { return f.path }
-func (f *fakeSecretService) EnvVars() []string      { return f.envVars }
-func (f *fakeSecretService) HeaderName() string     { return f.headerName }
-func (f *fakeSecretService) HeaderTemplate() string { return f.headerTemplate }
+func (f *fakeSecretService) Name() string            { return f.name }
+func (f *fakeSecretService) HostsPatterns() []string { return f.hostsPatterns }
+func (f *fakeSecretService) Path() string            { return f.path }
+func (f *fakeSecretService) EnvVars() []string       { return f.envVars }
+func (f *fakeSecretService) HeaderName() string      { return f.headerName }
+func (f *fakeSecretService) HeaderTemplate() string  { return f.headerTemplate }
 
 // fakeRegistrar implements SecretServiceRegistrar for testing
 type fakeRegistrar struct {
@@ -103,7 +103,7 @@ func TestRegisterAllWithFactories(t *testing.T) {
 
 		factories := []secretServiceFactory{
 			func() secretservice.SecretService {
-				return &fakeSecretService{name: "github", hostPattern: `github\.com`, headerName: "Authorization"}
+				return &fakeSecretService{name: "github", hostsPatterns: []string{"github.com"}, headerName: "Authorization"}
 			},
 		}
 
@@ -196,8 +196,8 @@ func TestAvailableSecretServicesContainGitHub(t *testing.T) {
 	if svc.Name() != "github" {
 		t.Errorf("Name() = %q, want %q", svc.Name(), "github")
 	}
-	if svc.HostPattern() != "api.github.com" {
-		t.Errorf("HostPattern() = %q, want %q", svc.HostPattern(), "api.github.com")
+	if len(svc.HostsPatterns()) == 0 || svc.HostsPatterns()[0] != "api.github.com" {
+		t.Errorf("HostsPatterns() = %v, want %v", svc.HostsPatterns(), []string{"api.github.com"})
 	}
 	if svc.Path() != "" {
 		t.Errorf("Path() = %q, want empty string", svc.Path())
@@ -236,8 +236,8 @@ func TestAvailableSecretServicesContainGemini(t *testing.T) {
 	if svc.Name() != "gemini" {
 		t.Errorf("Name() = %q, want %q", svc.Name(), "gemini")
 	}
-	if svc.HostPattern() != "generativelanguage.googleapis.com" {
-		t.Errorf("HostPattern() = %q, want %q", svc.HostPattern(), "generativelanguage.googleapis.com")
+	if len(svc.HostsPatterns()) == 0 || svc.HostsPatterns()[0] != "generativelanguage.googleapis.com" {
+		t.Errorf("HostsPatterns() = %v, want %v", svc.HostsPatterns(), []string{"generativelanguage.googleapis.com"})
 	}
 	if svc.Path() != "" {
 		t.Errorf("Path() = %q, want empty string", svc.Path())
@@ -276,8 +276,8 @@ func TestAvailableSecretServicesContainAnthropic(t *testing.T) {
 	if svc.Name() != "anthropic" {
 		t.Errorf("Name() = %q, want %q", svc.Name(), "anthropic")
 	}
-	if svc.HostPattern() != "api.anthropic.com" {
-		t.Errorf("HostPattern() = %q, want %q", svc.HostPattern(), "api.anthropic.com")
+	if len(svc.HostsPatterns()) == 0 || svc.HostsPatterns()[0] != "api.anthropic.com" {
+		t.Errorf("HostsPatterns() = %v, want %v", svc.HostsPatterns(), []string{"api.anthropic.com"})
 	}
 	if svc.Path() != "" {
 		t.Errorf("Path() = %q, want empty string", svc.Path())

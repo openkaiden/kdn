@@ -102,7 +102,7 @@ Add an entry to `pkg/secretservicesetup/secretservices.json`:
 ```json
 {
   "name": "my-service",
-  "hostPattern": "api.my-service.com",
+  "hostsPatterns": ["api.my-service.com"],
   "headerName": "Authorization",
   "headerTemplate": "Bearer ${value}",
   "envVars": ["MY_SERVICE_TOKEN"]
@@ -114,7 +114,7 @@ All fields:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | yes | Identifier used as `--type` value |
-| `hostPattern` | yes | Regex matched against request host |
+| `hostsPatterns` | yes | List of regex patterns matched against the request host |
 | `headerName` | yes | HTTP header to set |
 | `headerTemplate` | yes | Header value template; `${value}` is replaced with the secret value |
 | `path` | no | URL path prefix restriction |

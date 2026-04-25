@@ -113,10 +113,10 @@ inputs, err := mapper.Map(item, value) // item: secret.ListItem, value: string f
 
 ### Mapping rules
 
-- **Known type** (e.g. `github`): looks up the `SecretService` in the registry; uses its `HostPattern()`, `Path()`, `HeaderName()`, and `HeaderTemplate()` fields. Returns a single-element slice.
+- **Known type** (e.g. `github`): looks up the `SecretService` in the registry; uses its `HostsPatterns()`, `Path()`, `HeaderName()`, and `HeaderTemplate()` fields. If the service has a single host pattern, returns a single-element slice; if multiple patterns, returns one `CreateSecretInput` per pattern with the name `<secret-name>-<sanitized-pattern>`. Returns an error if `HostsPatterns()` is empty.
 - **`other` type**: uses the secret's own `Hosts`, `Path`, `Header`, `HeaderTemplate` fields. When multiple hosts are provided, one `CreateSecretInput` is returned per host with the name `<secret-name>-<sanitized-host>`; a single or empty `Hosts` returns a single element using `item.Name` unchanged.
 - Template conversion: kdn uses `${value}`, OneCLI uses `{value}` — the mapper converts automatically.
-- `HostPattern` is always `"*"` when `Hosts` is nil or empty.
+- `HostPattern` is `"*"` for `other` type when `Hosts` is nil or empty.
 
 ## SecretProvisioner
 

@@ -30,7 +30,7 @@ func registryWithGitHub(t *testing.T) secretservice.Registry {
 	reg := secretservice.NewRegistry()
 	svc := secretservice.NewSecretService(
 		"github",
-		"api.github.com",
+		[]string{"api.github.com"},
 		"",
 		[]string{"GH_TOKEN", "GITHUB_TOKEN"},
 		"Authorization",
@@ -79,6 +79,64 @@ func TestMapper_KnownType_GitHub(t *testing.T) {
 	}
 	if got[0].InjectionConfig.ValueFormat != "Bearer {value}" {
 		t.Errorf("ValueFormat = %q, want %q", got[0].InjectionConfig.ValueFormat, "Bearer {value}")
+	}
+}
+
+func TestMapper_KnownType_MultiplePatterns(t *testing.T) {
+	t.Parallel()
+
+	reg := secretservice.NewRegistry()
+	svc := secretservice.NewSecretService(
+		"multi",
+		[]string{"api.example.com", "api2.example.com"},
+		"",
+		nil,
+		"Authorization",
+		"Bearer ${value}",
+	)
+	if err := reg.Register(svc); err != nil {
+		t.Fatal(err)
+	}
+
+	mapper := NewSecretMapper(reg)
+	item := secret.ListItem{Name: "my-token", Type: "multi"}
+
+	got, err := mapper.Map(item, "val")
+	if err != nil {
+		t.Fatalf("Map() error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("Map() returned %d inputs, want 2", len(got))
+	}
+	if got[0].Name != "my-token-api-example-com" {
+		t.Errorf("got[0].Name = %q, want %q", got[0].Name, "my-token-api-example-com")
+	}
+	if got[0].HostPattern != "api.example.com" {
+		t.Errorf("got[0].HostPattern = %q, want %q", got[0].HostPattern, "api.example.com")
+	}
+	if got[1].Name != "my-token-api2-example-com" {
+		t.Errorf("got[1].Name = %q, want %q", got[1].Name, "my-token-api2-example-com")
+	}
+	if got[1].HostPattern != "api2.example.com" {
+		t.Errorf("got[1].HostPattern = %q, want %q", got[1].HostPattern, "api2.example.com")
+	}
+}
+
+func TestMapper_KnownType_EmptyPatterns(t *testing.T) {
+	t.Parallel()
+
+	reg := secretservice.NewRegistry()
+	svc := secretservice.NewSecretService("empty", nil, "", nil, "X-Token", "${value}")
+	if err := reg.Register(svc); err != nil {
+		t.Fatal(err)
+	}
+
+	mapper := NewSecretMapper(reg)
+	item := secret.ListItem{Name: "my-token", Type: "empty"}
+
+	_, err := mapper.Map(item, "val")
+	if err == nil {
+		t.Fatal("expected error for service with no host patterns")
 	}
 }
 

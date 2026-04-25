@@ -26,19 +26,19 @@ import (
 // fakeSecretService is a test implementation of the SecretService interface
 type fakeSecretService struct {
 	name           string
-	hostPattern    string
+	hostsPatterns  []string
 	path           string
 	envVars        []string
 	headerName     string
 	headerTemplate string
 }
 
-func (f *fakeSecretService) Name() string           { return f.name }
-func (f *fakeSecretService) HostPattern() string    { return f.hostPattern }
-func (f *fakeSecretService) Path() string           { return f.path }
-func (f *fakeSecretService) EnvVars() []string      { return f.envVars }
-func (f *fakeSecretService) HeaderName() string     { return f.headerName }
-func (f *fakeSecretService) HeaderTemplate() string { return f.headerTemplate }
+func (f *fakeSecretService) Name() string            { return f.name }
+func (f *fakeSecretService) HostsPatterns() []string { return f.hostsPatterns }
+func (f *fakeSecretService) Path() string            { return f.path }
+func (f *fakeSecretService) EnvVars() []string       { return f.envVars }
+func (f *fakeSecretService) HeaderName() string      { return f.headerName }
+func (f *fakeSecretService) HeaderTemplate() string  { return f.headerTemplate }
 
 func TestNewRegistry(t *testing.T) {
 	t.Parallel()
@@ -113,7 +113,7 @@ func TestRegistry_Get(t *testing.T) {
 		t.Parallel()
 
 		reg := NewRegistry()
-		svc := &fakeSecretService{name: "github", hostPattern: `github\.com`}
+		svc := &fakeSecretService{name: "github", hostsPatterns: []string{"github.com"}}
 
 		err := reg.Register(svc)
 		if err != nil {
@@ -133,8 +133,8 @@ func TestRegistry_Get(t *testing.T) {
 			t.Errorf("Get() returned service with name %q, want %q", retrieved.Name(), "github")
 		}
 
-		if retrieved.HostPattern() != `github\.com` {
-			t.Errorf("Get() returned service with host pattern %q, want %q", retrieved.HostPattern(), `github\.com`)
+		if len(retrieved.HostsPatterns()) == 0 || retrieved.HostsPatterns()[0] != "github.com" {
+			t.Errorf("Get() returned service with host patterns %v, want %v", retrieved.HostsPatterns(), []string{"github.com"})
 		}
 	})
 

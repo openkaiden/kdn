@@ -49,7 +49,7 @@ func (r *registryRegistrar) RegisterSecretService(service secretservice.SecretSe
 // serviceDetail represents a secret service in JSON output
 type serviceDetail struct {
 	Name           string   `json:"name"`
-	HostPattern    string   `json:"hostPattern"`
+	HostsPatterns  []string `json:"hostsPatterns"`
 	HeaderName     string   `json:"headerName"`
 	HeaderTemplate string   `json:"headerTemplate,omitempty"`
 	Path           string   `json:"path,omitempty"`
@@ -117,14 +117,15 @@ func (s *serviceListCmd) displayTable(cmd *cobra.Command, services []secretservi
 	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 	columnFmt := color.New(color.FgYellow).SprintfFunc()
 
-	tbl := table.New("NAME", "HOST PATTERN", "PATH", "HEADER", "HEADER TEMPLATE", "ENV VARS")
+	tbl := table.New("NAME", "HOST PATTERNS", "PATH", "HEADER", "HEADER TEMPLATE", "ENV VARS")
 	tbl.WithWriter(out)
 	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 	// Add each service as a row
 	for _, svc := range services {
+		hostsPatterns := strings.Join(svc.HostsPatterns(), ", ")
 		envVars := strings.Join(svc.EnvVars(), ", ")
-		tbl.AddRow(svc.Name(), svc.HostPattern(), svc.Path(), svc.HeaderName(), svc.HeaderTemplate(), envVars)
+		tbl.AddRow(svc.Name(), hostsPatterns, svc.Path(), svc.HeaderName(), svc.HeaderTemplate(), envVars)
 	}
 
 	// Print the table
@@ -139,7 +140,7 @@ func (s *serviceListCmd) outputJSON(cmd *cobra.Command, services []secretservice
 	for _, svc := range services {
 		items = append(items, serviceDetail{
 			Name:           svc.Name(),
-			HostPattern:    svc.HostPattern(),
+			HostsPatterns:  svc.HostsPatterns(),
 			HeaderName:     svc.HeaderName(),
 			HeaderTemplate: svc.HeaderTemplate(),
 			Path:           svc.Path(),

@@ -2326,7 +2326,7 @@ Output:
   "items": [
     {
       "name": "github",
-      "hostPattern": "api.github.com",
+      "hostsPatterns": ["api.github.com"],
       "headerName": "Authorization",
       "headerTemplate": "Bearer ${value}",
       "envVars": ["GH_TOKEN", "GITHUB_TOKEN"]

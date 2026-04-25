@@ -4248,7 +4248,7 @@ func TestManager_Add_Secrets(t *testing.T) {
 
 		svc := &fakeSecretServiceImpl{
 			name:           "github",
-			hostPattern:    `github\.com`,
+			hostsPatterns:  []string{"github.com"},
 			headerName:     "Authorization",
 			headerTemplate: "Bearer ${value}",
 			envVars:        []string{"GITHUB_TOKEN"},
@@ -4277,8 +4277,8 @@ func TestManager_Add_Secrets(t *testing.T) {
 		if got.Name != "gh-token" {
 			t.Errorf("OnecliSecrets[0].Name = %q, want %q", got.Name, "gh-token")
 		}
-		if got.HostPattern != `github\.com` {
-			t.Errorf("OnecliSecrets[0].HostPattern = %q, want %q", got.HostPattern, `github\.com`)
+		if got.HostPattern != "github.com" {
+			t.Errorf("OnecliSecrets[0].HostPattern = %q, want %q", got.HostPattern, "github.com")
 		}
 		if got.Value != "ghp_abc123" {
 			t.Errorf("OnecliSecrets[0].Value = %q, want %q", got.Value, "ghp_abc123")
@@ -4460,10 +4460,10 @@ func TestManager_Add_Secrets(t *testing.T) {
 			t.Fatalf("newManagerWithFactory() error = %v", err)
 		}
 		svc := &fakeSecretServiceImpl{
-			name:        "github",
-			hostPattern: `github\.com`,
-			headerName:  "Authorization",
-			envVars:     []string{"GITHUB_TOKEN"},
+			name:          "github",
+			hostsPatterns: []string{"github.com"},
+			headerName:    "Authorization",
+			envVars:       []string{"GITHUB_TOKEN"},
 		}
 		if err := manager.RegisterSecretService(svc); err != nil {
 			t.Fatalf("RegisterSecretService() error = %v", err)
@@ -4499,19 +4499,19 @@ func TestManager_Add_Secrets(t *testing.T) {
 // fakeSecretServiceImpl is a test implementation of the SecretService interface
 type fakeSecretServiceImpl struct {
 	name           string
-	hostPattern    string
+	hostsPatterns  []string
 	path           string
 	envVars        []string
 	headerName     string
 	headerTemplate string
 }
 
-func (f *fakeSecretServiceImpl) Name() string           { return f.name }
-func (f *fakeSecretServiceImpl) HostPattern() string    { return f.hostPattern }
-func (f *fakeSecretServiceImpl) Path() string           { return f.path }
-func (f *fakeSecretServiceImpl) EnvVars() []string      { return f.envVars }
-func (f *fakeSecretServiceImpl) HeaderName() string     { return f.headerName }
-func (f *fakeSecretServiceImpl) HeaderTemplate() string { return f.headerTemplate }
+func (f *fakeSecretServiceImpl) Name() string            { return f.name }
+func (f *fakeSecretServiceImpl) HostsPatterns() []string { return f.hostsPatterns }
+func (f *fakeSecretServiceImpl) Path() string            { return f.path }
+func (f *fakeSecretServiceImpl) EnvVars() []string       { return f.envVars }
+func (f *fakeSecretServiceImpl) HeaderName() string      { return f.headerName }
+func (f *fakeSecretServiceImpl) HeaderTemplate() string  { return f.headerTemplate }
 
 func TestManager_GetDashboardURL(t *testing.T) {
 	t.Parallel()
@@ -4683,7 +4683,7 @@ func TestManager_RegisterSecretService(t *testing.T) {
 		tmpDir := t.TempDir()
 		manager, _ := newManagerWithFactory(tmpDir, fakeInstanceFactory, newFakeGenerator(), newTestRegistry(tmpDir), agent.NewRegistry(), secretservice.NewRegistry(), secret.NewStore(tmpDir), newFakeGitDetector())
 
-		svc := &fakeSecretServiceImpl{name: "github", hostPattern: `github\.com`, headerName: "Authorization"}
+		svc := &fakeSecretServiceImpl{name: "github", hostsPatterns: []string{"github.com"}, headerName: "Authorization"}
 
 		err := manager.RegisterSecretService(svc)
 		if err != nil {

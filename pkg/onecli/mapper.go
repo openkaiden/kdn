@@ -62,22 +62,56 @@ func (m *secretMapper) mapKnownSecret(item secret.ListItem, value string) ([]Cre
 		return nil, fmt.Errorf("unknown secret type %q: %w", item.Type, err)
 	}
 
-	input := CreateSecretInput{
-		Name:        item.Name,
-		Type:        "generic",
-		Value:       value,
-		HostPattern: svc.HostPattern(),
-		PathPattern: svc.Path(),
+	patterns := svc.HostsPatterns()
+	if len(patterns) == 0 {
+		return nil, fmt.Errorf("secret service %q has no host patterns defined", item.Type)
 	}
 
-	if headerName := svc.HeaderName(); headerName != "" {
-		input.InjectionConfig = &InjectionConfig{
-			HeaderName:  headerName,
-			ValueFormat: convertTemplate(svc.HeaderTemplate()),
+	if len(patterns) == 1 {
+		input := CreateSecretInput{
+			Name:        item.Name,
+			Type:        "generic",
+			Value:       value,
+			HostPattern: patterns[0],
+			PathPattern: svc.Path(),
 		}
+		if headerName := svc.HeaderName(); headerName != "" {
+			input.InjectionConfig = &InjectionConfig{
+				HeaderName:  headerName,
+				ValueFormat: convertTemplate(svc.HeaderTemplate()),
+			}
+		}
+		return []CreateSecretInput{input}, nil
 	}
 
-	return []CreateSecretInput{input}, nil
+	inputs := make([]CreateSecretInput, 0, len(patterns))
+	seen := make(map[string]string, len(patterns))
+	for _, pattern := range patterns {
+		suffix := sanitizeName(pattern)
+		if suffix == "" {
+			return nil, fmt.Errorf("host pattern %q sanitizes to an empty name segment", pattern)
+		}
+		name := item.Name + "-" + suffix
+		if prev, ok := seen[name]; ok {
+			return nil, fmt.Errorf("host patterns %q and %q produce duplicate secret name %q", prev, pattern, name)
+		}
+		seen[name] = pattern
+		input := CreateSecretInput{
+			Name:        name,
+			Type:        "generic",
+			Value:       value,
+			HostPattern: pattern,
+			PathPattern: svc.Path(),
+		}
+		if headerName := svc.HeaderName(); headerName != "" {
+			input.InjectionConfig = &InjectionConfig{
+				HeaderName:  headerName,
+				ValueFormat: convertTemplate(svc.HeaderTemplate()),
+			}
+		}
+		inputs = append(inputs, input)
+	}
+	return inputs, nil
 }
 
 func (m *secretMapper) mapOtherSecret(item secret.ListItem, value string) ([]CreateSecretInput, error) {
