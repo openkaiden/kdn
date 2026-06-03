@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ secrets.KAIDEN_BOT_TOKEN }}
           fetch-depth: 0
@@ -72,7 +72,7 @@ jobs:
           KAIDEN_BOT_TOKEN: ${{ secrets.KAIDEN_BOT_TOKEN }}
 
       - name: checkout the tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: openkaiden/kdn-prereleases
           ref: ${{ steps.version.outputs.githubTag }}
