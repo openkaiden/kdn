@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/charmbracelet/huh v1.0.0
 	github.com/charmbracelet/x/ansi v0.11.7
-	github.com/devfile/alizer v1.9.6
+	github.com/devfile/alizer v1.10.0
 	github.com/fatih/color v1.19.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/openkaiden/kdn-api/cli/go v0.14.0
@@ -39,7 +39,7 @@ require (
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/hashicorp/go-version v1.8.0 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -57,8 +57,8 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
-	golang.org/x/mod v0.33.0 // indirect
+	go.uber.org/zap v1.28.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
