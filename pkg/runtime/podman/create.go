@@ -365,9 +365,24 @@ func findFreePorts(n int) ([]int, error) {
 	return ports, nil
 }
 
-// renderPodYAML renders the embedded pod YAML template with the given data.
-func renderPodYAML(data podTemplateData) ([]byte, error) {
-	tmpl, err := template.New("pod").Parse(string(pods.OnecliPodYAML))
+// loadPodYAMLTemplate returns the pod YAML template to use for rendering.
+// If the user has placed a custom template at <storageDir>/config/onecli-pod.yaml
+// that file is read and returned; otherwise the embedded default is returned.
+func (p *podmanRuntime) loadPodYAMLTemplate() ([]byte, error) {
+	customPath := filepath.Join(p.storageDir, "config", "onecli-pod.yaml")
+	content, err := os.ReadFile(customPath)
+	if err == nil {
+		return content, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to read custom pod template %s: %w", customPath, err)
+	}
+	return pods.OnecliPodYAML, nil
+}
+
+// renderPodYAML renders the given pod YAML template with the given data.
+func renderPodYAML(tmplContent []byte, data podTemplateData) ([]byte, error) {
+	tmpl, err := template.New("pod").Parse(string(tmplContent))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pod template: %w", err)
 	}
@@ -530,7 +545,7 @@ func (p *podmanRuntime) Create(ctx context.Context, params runtime.CreateParams)
 		return runtime.RuntimeInfo{}, fmt.Errorf("failed to create temp pod directory: %w", err)
 	}
 	tmpYAMLPath := filepath.Join(tmpPodDir, podYAMLFile)
-	if err := writePodYAMLFile(tmpYAMLPath, tmplData); err != nil {
+	if err := p.writePodYAMLFile(tmpYAMLPath, tmplData); err != nil {
 		return runtime.RuntimeInfo{}, err
 	}
 
@@ -790,8 +805,14 @@ func writeApprovalHandlerFiles(dir string) error {
 }
 
 // writePodYAMLFile renders and writes the pod YAML template to the given path.
-func writePodYAMLFile(path string, data podTemplateData) error {
-	content, err := renderPodYAML(data)
+// It uses a custom template from <storageDir>/config/onecli-pod.yaml when present,
+// falling back to the embedded default.
+func (p *podmanRuntime) writePodYAMLFile(path string, data podTemplateData) error {
+	tmplContent, err := p.loadPodYAMLTemplate()
+	if err != nil {
+		return err
+	}
+	content, err := renderPodYAML(tmplContent, data)
 	if err != nil {
 		return err
 	}

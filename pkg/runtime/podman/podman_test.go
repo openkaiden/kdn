@@ -24,6 +24,7 @@ import (
 	workspace "github.com/openkaiden/kdn-api/workspace-configuration/go"
 	"github.com/openkaiden/kdn/pkg/runtime/podman/config"
 	"github.com/openkaiden/kdn/pkg/runtime/podman/exec"
+	"github.com/openkaiden/kdn/pkg/runtime/podman/pods"
 	"github.com/openkaiden/kdn/pkg/system"
 )
 
@@ -293,7 +294,7 @@ func TestRenderPodYAML(t *testing.T) {
 			ApprovalHandlerDir: "/tmp/approval-handler/my-project",
 		}
 
-		result, err := renderPodYAML(data)
+		result, err := renderPodYAML(pods.OnecliPodYAML, data)
 		if err != nil {
 			t.Fatalf("renderPodYAML() failed: %v", err)
 		}
@@ -350,7 +351,7 @@ func TestRenderPodYAML(t *testing.T) {
 			ApprovalHandlerDir: "/tmp/approval-handler/test",
 		}
 
-		result, err := renderPodYAML(data)
+		result, err := renderPodYAML(pods.OnecliPodYAML, data)
 		if err != nil {
 			t.Fatalf("renderPodYAML() failed: %v", err)
 		}
@@ -359,6 +360,49 @@ func TestRenderPodYAML(t *testing.T) {
 
 		if strings.Contains(yamlStr, "{{") || strings.Contains(yamlStr, "}}") {
 			t.Error("Expected rendered YAML to not contain any template placeholders")
+		}
+	})
+}
+
+func TestLoadPodYAMLTemplate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns embedded template when no custom file exists", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		p := &podmanRuntime{storageDir: storageDir}
+
+		content, err := p.loadPodYAMLTemplate()
+		if err != nil {
+			t.Fatalf("loadPodYAMLTemplate() failed: %v", err)
+		}
+		if string(content) != string(pods.OnecliPodYAML) {
+			t.Error("Expected embedded template to be returned when no custom file exists")
+		}
+	})
+
+	t.Run("returns custom template when file exists in config dir", func(t *testing.T) {
+		t.Parallel()
+
+		storageDir := t.TempDir()
+		configDir := filepath.Join(storageDir, "config")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatalf("failed to create config dir: %v", err)
+		}
+		customTemplate := []byte("custom-pod-template: {{.Name}}")
+		if err := os.WriteFile(filepath.Join(configDir, "onecli-pod.yaml"), customTemplate, 0644); err != nil {
+			t.Fatalf("failed to write custom template: %v", err)
+		}
+
+		p := &podmanRuntime{storageDir: storageDir}
+
+		content, err := p.loadPodYAMLTemplate()
+		if err != nil {
+			t.Fatalf("loadPodYAMLTemplate() failed: %v", err)
+		}
+		if string(content) != string(customTemplate) {
+			t.Errorf("Expected custom template to be returned, got: %s", content)
 		}
 	})
 }

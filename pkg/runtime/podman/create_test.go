@@ -36,6 +36,7 @@ import (
 	"github.com/openkaiden/kdn/pkg/runtime"
 	"github.com/openkaiden/kdn/pkg/runtime/podman/config"
 	"github.com/openkaiden/kdn/pkg/runtime/podman/exec"
+	"github.com/openkaiden/kdn/pkg/runtime/podman/pods"
 	"github.com/openkaiden/kdn/pkg/steplogger"
 )
 
@@ -2229,7 +2230,7 @@ func TestRenderPodYAML_Ports(t *testing.T) {
 			},
 		}
 
-		rendered, err := renderPodYAML(data)
+		rendered, err := renderPodYAML(pods.OnecliPodYAML, data)
 		if err != nil {
 			t.Fatalf("renderPodYAML() failed: %v", err)
 		}
@@ -2266,7 +2267,7 @@ func TestRenderPodYAML_Ports(t *testing.T) {
 			ApprovalHandlerDir: "/tmp/approval",
 		}
 
-		rendered, err := renderPodYAML(data)
+		rendered, err := renderPodYAML(pods.OnecliPodYAML, data)
 		if err != nil {
 			t.Fatalf("renderPodYAML() failed: %v", err)
 		}
