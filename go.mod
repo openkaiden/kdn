@@ -13,7 +13,7 @@ require (
 	github.com/rodaine/table v1.3.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/yarlson/pin v0.9.1
+	github.com/yarlson/pin v0.10.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/sys v0.45.0
 )
