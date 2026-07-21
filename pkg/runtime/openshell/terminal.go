@@ -17,7 +17,6 @@ package openshell
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/openkaiden/kdn/pkg/runtime"
 )
@@ -32,16 +31,9 @@ func (r *openshellRuntime) Terminal(ctx context.Context, instanceID string, _ st
 		return err
 	}
 
-	shellCmd := "bash"
-	if len(command) > 0 {
-		shellCmd = strings.Join(command, " ")
-	}
-	wrappedCmd := fmt.Sprintf("source %s/.kdn-env 2>/dev/null; cd %s 2>/dev/null; exec %s", containerHome, containerWorkspaceSources, shellCmd)
-
 	args := []string{
-		"sandbox", "exec",
-		"--name", instanceID,
-		"--", "sh", "-c", wrappedCmd,
+		"sandbox", "connect",
+		instanceID,
 	}
 
 	return r.executor.RunInteractive(ctx, args...)
