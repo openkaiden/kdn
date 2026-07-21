@@ -194,7 +194,7 @@ The runtime system provides a pluggable architecture for managing workspaces on 
 
 The OpenShell runtime downloads three binaries (`openshell`, `openshell-gateway`, `openshell-driver-vm`) from official GitHub releases at `https://github.com/NVIDIA/OpenShell/releases`.
 
-**Default version constant:** `pkg/runtime/openshell/version.go` defines `DefaultVersion` (currently `v0.0.39`). To bump the default, update **both** files:
+**Default version constant:** `pkg/runtime/openshell/version.go` defines `DefaultVersion` (currently `v0.0.86`). To bump the default, update **both** files:
 1. `pkg/runtime/openshell/version.go` — change the `DefaultVersion` constant
 2. `AGENTS.md` — update the version mentioned in this section (the "currently `vX.Y.Z`" parenthetical above)
 
