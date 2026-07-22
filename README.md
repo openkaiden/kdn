@@ -1,9 +1,13 @@
 # kdn
 
-[![codecov](https://codecov.io/gh/openkaiden/kdn/branch/main/graph/badge.svg)](https://codecov.io/gh/openkaiden/kdn)
-[![Documentation](https://img.shields.io/badge/documentation-blue)](https://openkaiden.github.io/kdn/)
+> **Note**
+> **This project is archived.** kdn originally provided its own sandboxing mechanism for running AI coding agents in isolated workspaces. The [Kaiden](https://openkaiden.ai/) project now uses [OpenShell](https://github.com/NVIDIA/OpenShell) natively for sandboxing, so kdn is no longer needed. The OpenShell CLI handles the work that kdn previously did. Development effort has been concentrated on OpenShell and Kaiden.
+>
+> **If you are looking for a sandboxed environment to run AI coding agents, please use [Kaiden](https://github.com/openkaiden/kaiden).**
 
-kdn is a command-line interface for launching and managing AI agents in isolated, reproducible workspaces. It creates runtime-based environments (containers, VMs, or other backends) where agents run with your project source code mounted, automatically configured and ready to use — no manual onboarding or setup required.
+---
+
+kdn was a command-line interface for launching and managing AI agents in isolated, reproducible workspaces. It created runtime-based environments (containers, VMs, or other backends) where agents ran with your project source code mounted, automatically configured and ready to use — no manual onboarding or setup required.
 
 The architecture is built around pluggable runtimes. Additional runtimes (e.g., Kubernetes) can be added to support other execution environments.
 
